@@ -1,0 +1,23 @@
+{
+  "name": "nitto1320-log-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "description": "Minute-by-minute SSH/journald log puller and interactive TUI viewer for the Nitto 1320 Legends backend.",
+  "bin": {
+    "nitto-log-sidecar": "bin/nitto-log-sidecar.mjs"
+  },
+  "scripts": {
+    "pull": "node bin/nitto-log-sidecar.mjs pull",
+    "watch": "node bin/nitto-log-sidecar.mjs watch",
+    "view": "node bin/nitto-log-sidecar.mjs view",
+    "run": "node bin/nitto-log-sidecar.mjs run",
+    "dashboard": "node bin/nitto-log-sidecar.mjs dashboard",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "ssh2": "^1.17.0"
+  }
+}

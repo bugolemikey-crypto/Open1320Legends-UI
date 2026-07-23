@@ -1,0 +1,281 @@
+{
+  "source": "assets\\login\\login_telemetry_exact_cars_v2.png",
+  "source_size": [
+    1608,
+    978
+  ],
+  "elements": {
+    "01_header_complete": {
+      "file": "01_header_complete.png",
+      "source_box": [
+        8,
+        33,
+        1599,
+        238
+      ],
+      "size": [
+        1591,
+        205
+      ]
+    },
+    "02_header_logo_from_concept": {
+      "file": "02_header_logo_from_concept.png",
+      "source_box": [
+        145,
+        48,
+        735,
+        221
+      ],
+      "size": [
+        590,
+        173
+      ]
+    },
+    "03_support_control": {
+      "file": "03_support_control.png",
+      "source_box": [
+        1345,
+        105,
+        1535,
+        165
+      ],
+      "size": [
+        190,
+        60
+      ]
+    },
+    "04_car_hero_complete": {
+      "file": "04_car_hero_complete.png",
+      "source_box": [
+        0,
+        238,
+        1600,
+        660
+      ],
+      "size": [
+        1600,
+        422
+      ]
+    },
+    "05_login_console_complete": {
+      "file": "05_login_console_complete.png",
+      "source_box": [
+        27,
+        659,
+        1583,
+        931
+      ],
+      "size": [
+        1556,
+        272
+      ]
+    },
+    "06_console_left_section": {
+      "file": "06_console_left_section.png",
+      "source_box": [
+        28,
+        660,
+        520,
+        930
+      ],
+      "size": [
+        492,
+        270
+      ]
+    },
+    "07_console_center_section": {
+      "file": "07_console_center_section.png",
+      "source_box": [
+        520,
+        660,
+        846,
+        930
+      ],
+      "size": [
+        326,
+        270
+      ]
+    },
+    "08_console_right_section": {
+      "file": "08_console_right_section.png",
+      "source_box": [
+        846,
+        660,
+        1582,
+        930
+      ],
+      "size": [
+        736,
+        270
+      ]
+    },
+    "09_button_discord": {
+      "file": "09_button_discord.png",
+      "source_box": [
+        63,
+        775,
+        476,
+        864
+      ],
+      "size": [
+        413,
+        89
+      ]
+    },
+    "10_button_create_account": {
+      "file": "10_button_create_account.png",
+      "source_box": [
+        546,
+        775,
+        815,
+        864
+      ],
+      "size": [
+        269,
+        89
+      ]
+    },
+    "11_button_login": {
+      "file": "11_button_login.png",
+      "source_box": [
+        881,
+        789,
+        1537,
+        869
+      ],
+      "size": [
+        656,
+        80
+      ]
+    },
+    "12_field_racer_name": {
+      "file": "12_field_racer_name.png",
+      "source_box": [
+        1067,
+        677,
+        1538,
+        724
+      ],
+      "size": [
+        471,
+        47
+      ]
+    },
+    "13_field_password": {
+      "file": "13_field_password.png",
+      "source_box": [
+        1067,
+        732,
+        1538,
+        779
+      ],
+      "size": [
+        471,
+        47
+      ]
+    },
+    "14_console_divider_left": {
+      "file": "14_console_divider_left.png",
+      "source_box": [
+        510,
+        665,
+        530,
+        923
+      ],
+      "size": [
+        20,
+        258
+      ]
+    },
+    "15_console_divider_right": {
+      "file": "15_console_divider_right.png",
+      "source_box": [
+        835,
+        665,
+        855,
+        923
+      ],
+      "size": [
+        20,
+        258
+      ]
+    },
+    "16_red_edge_trim": {
+      "file": "16_red_edge_trim.png",
+      "source_box": [
+        31,
+        652,
+        1579,
+        674
+      ],
+      "size": [
+        1548,
+        22
+      ]
+    },
+    "17_panel_texture_sample": {
+      "file": "17_panel_texture_sample.png",
+      "source_box": [
+        1218,
+        180,
+        1314,
+        220
+      ],
+      "size": [
+        96,
+        40
+      ]
+    },
+    "18_header_shell_blank": {
+      "file": "18_header_shell_blank.png",
+      "size": [
+        1591,
+        205
+      ],
+      "notes": "Approved perimeter with an empty smoked-glass content area."
+    },
+    "19_console_shell_blank": {
+      "file": "19_console_shell_blank.png",
+      "size": [
+        1556,
+        272
+      ],
+      "notes": "Approved perimeter with empty content area for other screens."
+    },
+    "20_car_left_alpha": {
+      "file": "20_car_left_alpha.png",
+      "mask": "20_car_left_alpha_mask.png",
+      "size": [
+        605,
+        318
+      ],
+      "notes": "Exact approved pixels; alpha separated with a reusable mask."
+    },
+    "21_car_center_alpha": {
+      "file": "21_car_center_alpha.png",
+      "mask": "21_car_center_alpha_mask.png",
+      "size": [
+        680,
+        350
+      ],
+      "notes": "Exact approved pixels; alpha separated with a reusable mask."
+    },
+    "22_car_right_alpha": {
+      "file": "22_car_right_alpha.png",
+      "mask": "22_car_right_alpha_mask.png",
+      "size": [
+        750,
+        377
+      ],
+      "notes": "Exact approved pixels; alpha separated with a reusable mask."
+    },
+    "00_logo_repository_original": {
+      "file": "00_logo_repository_original.png",
+      "source": "1320-legends-logo-smaller.png",
+      "size": [
+        401,
+        125
+      ]
+    }
+  }
+}

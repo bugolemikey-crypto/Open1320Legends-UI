@@ -1,0 +1,115 @@
+{
+  "stage": {
+    "width": 800,
+    "height": 600
+  },
+  "background": {
+    "image_id": 1925,
+    "shape_id": -1,
+    "fit": "contain"
+  },
+  "root_instances": {
+    "loginGroup": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "text_fields": {
+    "1935": {
+      "fontHeight": 14,
+      "color": [
+        235,
+        235,
+        235
+      ]
+    },
+    "1936": {
+      "fontHeight": 14,
+      "color": [
+        235,
+        235,
+        235
+      ]
+    },
+    "1962": {
+      "fontHeight": 14,
+      "color": [
+        235,
+        235,
+        235
+      ]
+    },
+    "1963": {
+      "fontHeight": 14,
+      "color": [
+        235,
+        235,
+        235
+      ]
+    }
+  },
+  "sprites": [
+    {
+      "sprite_id": 2093,
+      "hide_characters": [
+        2034,
+        2040,
+        2010,
+        2013,
+        2016,
+        2019,
+        2024
+      ],
+      "instances": {}
+    },
+    {
+      "sprite_id": 2002,
+      "hide_characters": [
+        1930,
+        1931,
+        1932,
+        1933,
+        1934,
+        1952,
+        1957,
+        1961
+      ],
+      "instances": {
+        "fldUsername": {
+          "x": 539,
+          "y": 421,
+          "scaleX": 0.9,
+          "scaleY": 1.0
+        },
+        "fldPass": {
+          "x": 539,
+          "y": 456,
+          "scaleX": 0.9,
+          "scaleY": 1.0
+        },
+        "btnFBConnect": {
+          "x": 31,
+          "y": 480,
+          "scaleX": 1.184,
+          "scaleY": 1.531
+        },
+        "btnCreateAccount": {
+          "x": 272,
+          "y": 480,
+          "scaleX": 0.779,
+          "scaleY": 1.531
+        },
+        "btnStart": {
+          "x": 438,
+          "y": 488,
+          "scaleX": 1.901,
+          "scaleY": 1.376
+        },
+        "btnHelp": {
+          "x": 512,
+          "y": 426
+        }
+      }
+    }
+  ]
+}

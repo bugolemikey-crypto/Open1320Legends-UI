@@ -1,0 +1,17 @@
+{
+  "stage": {
+    "width": 427,
+    "height": 300
+  },
+  "background": {
+    "image_id": 21,
+    "shape_id": 22,
+    "fit": "cover",
+    "anchor": "center"
+  },
+  "replacements": ["21=assets/login/newuserform_bg.jpg"],
+  "root_hide_characters": [],
+  "root_hide_names": [],
+  "root_instances": {},
+  "text_fields": {}
+}

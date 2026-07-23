@@ -1,0 +1,35 @@
+{
+  "targets": [
+    {
+      "id": "loading_screen",
+      "label": "Main loading / intro screen",
+      "source": "cache/misc/intro.swf",
+      "deploy_to": "cache/misc/intro.swf",
+      "kind": "cache_swf",
+      "notes": "Loaded via cache/misc/intro.swf. Export images + scripts with FFDec."
+    },
+    {
+      "id": "login_form",
+      "label": "New user / registration form",
+      "source": "cache/misc/newuserform.swf",
+      "deploy_to": "cache/misc/newuserform.swf",
+      "kind": "cache_swf",
+      "notes": "Base login UI. Discord login button will likely be added here or in main.swf login flow."
+    },
+    {
+      "id": "main_client",
+      "label": "Main client (home screen, HUD, money, points, street credit)",
+      "source": "source/main.swf",
+      "deploy_to": "embedded_in_exe",
+      "kind": "embedded_swf",
+      "notes": "Embedded in NittoLegendsBeta.exe. Re-extract after game updates. Discord login reuses legacy facebookLogin symbols near login/loginCB; OAuth bridge verb is still fbgettoken."
+    }
+  ],
+  "style_symbols": {
+    "money": ["txtMoney", "moneyAnim", "btnBetMoney", "carMoneyPrice"],
+    "points": ["btnActivatePoints", "btnEarnPoints", "btnPurchasePoints", "POINTS"],
+    "street_credit": ["currentStreetCredit", "priorStreetCredit", "dialogStreetCredAnalysisContent"],
+    "home": ["SectionHome", "HomeAccount", "HomeProfile", "HomeTeamStatus", "arrHome"],
+    "login": ["login", "loginCB", "facebookLogin", "fbLogin", "doPreLoginStuff", "btnFBConnect", "fbGetToken"]
+  }
+}

@@ -1,0 +1,32 @@
+node_modules/
+data/
+.env
+*.log
+
+# --- Build inputs and outputs ---------------------------------------------
+# Each client SWF is 28-30 MB and is re-extractable from the game install, so
+# these are rebuilt by scripts/ rather than tracked.
+source/
+patches/
+exports/
+cache/
+
+# Per-investigation scratch directories.
+temp_*/
+tmp_*/
+
+# --- Large binaries --------------------------------------------------------
+*.swf
+*.fla
+*.dir
+*.exe
+*.zip
+*.ico.bak
+
+# FFDec whole-file XML dumps, ~85 MB each. Regenerate with scripts/extract_main.py.
+header-main.xml
+temp_nim_validation.xml
+*.xml
+
+# Contact sheets rendered while investigating frame imports.
+header-*-contact-sheet.jpg

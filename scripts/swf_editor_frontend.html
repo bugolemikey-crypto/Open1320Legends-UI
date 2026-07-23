@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SWF Editor - Open1320Legends</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a1a; color: #ddd; font-family: 'Segoe UI', Consolas, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+#toolbar { background: #111; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; }
+#toolbar h1 { font-size: 16px; color: #0cf; margin-right: 20px; }
+#toolbar .swf-info { font-size: 12px; color: #888; }
+#toolbar button { background: #333; border: 1px solid #555; color: #eee; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+#toolbar button:hover { background: #444; }
+#toolbar button.action { background: #0a7; border-color: #0a7; }
+#toolbar button.danger { background: #c40; border-color: #c40; }
+#main { display: flex; flex: 1; overflow: hidden; }
+#tabs { background: #222; width: 180px; border-right: 1px solid #333; overflow-y: auto; }
+#tabs .tab { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #2a2a2a; font-size: 13px; }
+#tabs .tab:hover { background: #2a2a2a; }
+#tabs .tab.active { background: #0cf; color: #000; font-weight: bold; }
+#content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#panel { flex: 1; padding: 16px; overflow-y: auto; }
+#log-bar { background: #111; border-top: 1px solid #333; padding: 8px 16px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #8f8; }
+.section { margin-bottom: 20px; }
+.section h3 { color: #0cf; margin-bottom: 8px; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table th { text-align: left; padding: 6px 8px; background: #2a2a2a; color: #aaa; border-bottom: 1px solid #444; }
+table td { padding: 6px 8px; border-bottom: 1px solid #2a2a2a; }
+table tr:hover { background: #252525; }
+table tr.clickable { cursor: pointer; }
+table tr.clickable:hover { background: #333; }
+input, textarea, select { background: #2a2a2a; border: 1px solid #444; color: #eee; padding: 6px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; }
+textarea { width: 100%; min-height: 400px; font-family: 'Consolas', monospace; font-size: 12px; resize: vertical; }
+input[type="file"] { padding: 4px; }
+.btn { display: inline-block; padding: 8px 16px; background: #0a7; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; margin-right: 8px; margin-top: 8px; }
+.btn:hover { opacity: 0.85; }
+.btn-red { background: #c40; }
+.btn-blue { background: #36c; }
+.btn-yellow { background: #a80; }
+.btn-gray { background: #555; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.card { background: #252525; border: 1px solid #333; border-radius: 6px; padding: 12px; text-align: center; }
+.card img { max-width: 100%; max-height: 150px; background: repeating-conic-gradient(#333 0% 25%, #2a2a2a 0% 50%) 50%/16px 16px; margin-bottom: 8px; }
+.card .label { font-size: 11px; color: #aaa; word-break: break-all; }
+.preview-img { max-width: 100%; max-height: 500px; background: repeating-conic-gradient(#333 0% 25%, #2a2a2a 0% 50%) 50%/16px 16px; border: 1px solid #444; }
+.field-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.field-row label { min-width: 100px; font-size: 12px; color: #999; }
+.field-row input { flex: 1; }
+#loading { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 24px 48px; border-radius: 8px; color: #0cf; font-size: 16px; z-index: 9999; }
+.vl-control { position: absolute; border: 2px solid rgba(0,200,255,0.7); background: rgba(0,200,255,0.08); cursor: move; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; user-select: none; border-radius: 3px; }
+.vl-control:hover { border-color: #fff; }
+</style>
+</head>
+<body>
+<div id="loading">Working...</div>
+<div id="toolbar">
+  <h1>SWF Editor</h1>
+  <span class="swf-info" id="swfInfo">Loading...</span>
+  <button onclick="openSWFPicker()">Open SWF</button>
+  <button class="action" onclick="runBuild()">Build</button>
+  <button class="danger" onclick="runDeploy()">Deploy</button>
+  <button onclick="runLaunch()">Launch Game</button>
+</div>
+<div id="main">
+  <div id="tabs">
+    <div class="tab active" data-tab="home">Quick Actions</div>
+    <div class="tab" data-tab="layout">Visual Layout</div>
+    <div class="tab" data-tab="images">Images</div>
+    <div class="tab" data-tab="scripts">Scripts</div>
+    <div class="tab" data-tab="tags">All Tags</div>
+    <div class="tab" data-tab="shapes">Shapes</div>
+    <div class="tab" data-tab="sprites">Sprites</div>
+    <div class="tab" data-tab="text">Text</div>
+    <div class="tab" data-tab="fonts">Fonts</div>
+    <div class="tab" data-tab="sounds">Sounds</div>
+    <div class="tab" data-tab="header">Header</div>
+    <div class="tab" data-tab="xml">XML View</div>
+    <div class="tab" data-tab="replace">Replace</div>
+    <div class="tab" data-tab="remove">Remove</div>
+  </div>
+  <div id="content">
+    <div id="panel"></div>
+    <div id="log-bar"></div>
+  </div>
+</div>
+<script>
+const API = '';
+let currentTab = 'home';
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    loadTab(currentTab);
+  });
+});
+
+async function api(path, opts = {}) {
+  const resp = await fetch(API + path, opts);
+  return resp;
+}
+async function apiJson(path, opts = {}) {
+  const resp = await api(path, opts);
+  return resp.json();
+}
+
+function showLoading(show) { document.getElementById('loading').style.display = show ? 'block' : 'none'; }
+function log(msg) { const el = document.getElementById('log-bar'); el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; }
+function panel() { return document.getElementById('panel'); }
+
+// ─── Info ───
+async function loadInfo() {
+  const info = await apiJson('/api/info');
+  document.getElementById('swfInfo').textContent = `${info.swf_name} (${(info.swf_size/1024/1024).toFixed(1)} MB)`;
+}
+
+// ─── Tags ───
+async function loadTags() {
+  showLoading(true);
+  const data = await apiJson('/api/tags');
+  showLoading(false);
+  let html = `<div class="section"><h3>SWF Tags (${data.count})</h3>`;
+  html += `<input type="text" id="tagFilter" placeholder="Filter tags..." oninput="filterTable('tagTable', this.value)" style="margin-bottom:12px;width:300px;">`;
+  html += `<table id="tagTable"><tr><th>#</th><th>Tag</th></tr>`;
+  (data.tags || []).forEach((tag, i) => {
+    html += `<tr><td>${i+1}</td><td>${escHtml(tag)}</td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+// ─── Images ───
+async function loadImages() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=image');
+  showLoading(false);
+  let html = `<div class="section"><h3>Images (${data.count})</h3>`;
+  html += `<input type="text" id="imgFilter" placeholder="Filter..." oninput="filterGrid(this.value)" style="margin-bottom:12px;width:300px;">`;
+  html += `<div class="grid" id="imgGrid">`;
+  (data.files || []).forEach(f => {
+    const url = `/api/file?path=${encodeURIComponent(f.full_path)}`;
+    html += `<div class="card" data-name="${f.path.toLowerCase()}">
+      <img src="${url}" loading="lazy" onclick="previewImage('${url}', '${escAttr(f.path)}')">
+      <div class="label">${escHtml(f.path)}<br>${(f.size/1024).toFixed(1)} KB</div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  panel().innerHTML = html;
+}
+
+function previewImage(url, name) {
+  const charId = name.match(/(\d+)\./)?.[1] || '';
+  panel().innerHTML = `
+    <div class="section">
+      <h3>${escHtml(name)}</h3>
+      <img class="preview-img" src="${url}">
+      <div style="margin-top:16px">
+        <h3>Replace Image (Character ${charId})</h3>
+        <input type="file" id="replaceFile" accept="image/*">
+        <select id="replaceFormat"><option value="jpeg3">JPEG3</option><option value="lossless2">Lossless2 (PNG)</option><option value="lossless">Lossless</option></select>
+        <button class="btn" onclick="replaceImage('${charId}')">Replace</button>
+        <button class="btn btn-gray" onclick="loadImages()">Back</button>
+      </div>
+    </div>`;
+}
+
+async function replaceImage(charId) {
+  const file = document.getElementById('replaceFile').files[0];
+  if (!file) { alert('Select a file first'); return; }
+  const fmt = document.getElementById('replaceFormat').value;
+  showLoading(true);
+  const data = await file.arrayBuffer();
+  const resp = await apiJson(`/api/replace/image?id=${charId}&format=${fmt}`, {
+    method: 'POST', body: new Uint8Array(data)
+  });
+  showLoading(false);
+  log(resp.message);
+  if (resp.success) loadImages();
+}
+
+// ─── Shapes ───
+async function loadShapes() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=shape&format=shape:png');
+  showLoading(false);
+  let html = `<div class="section"><h3>Shapes (${data.count})</h3><div class="grid">`;
+  (data.files || []).forEach(f => {
+    const url = `/api/file?path=${encodeURIComponent(f.full_path)}`;
+    html += `<div class="card"><img src="${url}" loading="lazy"><div class="label">${escHtml(f.path)}</div></div>`;
+  });
+  html += `</div></div>`;
+  panel().innerHTML = html;
+}
+
+// ─── Sprites ───
+async function loadSprites() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=sprite&format=sprite:png');
+  showLoading(false);
+  let html = `<div class="section"><h3>Sprites (${data.count})</h3><div class="grid">`;
+  (data.files || []).slice(0, 200).forEach(f => {
+    const url = `/api/file?path=${encodeURIComponent(f.full_path)}`;
+    html += `<div class="card"><img src="${url}" loading="lazy"><div class="label">${escHtml(f.path)}</div></div>`;
+  });
+  html += `</div></div>`;
+  panel().innerHTML = html;
+}
+
+// ─── Scripts ───
+async function loadScripts() {
+  showLoading(true);
+  const data = await apiJson('/api/scripts');
+  showLoading(false);
+  let html = `<div class="section"><h3>ActionScript (${data.count})</h3>`;
+  html += `<input type="text" id="scriptFilter" placeholder="Filter scripts..." oninput="filterTable('scriptTable', this.value)" style="margin-bottom:12px;width:400px;">`;
+  html += `<table id="scriptTable"><tr><th>Script Path</th></tr>`;
+  (data.scripts || []).forEach(s => {
+    html += `<tr class="clickable" onclick="openScript('${escAttr(s)}')"><td>${escHtml(s)}</td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+async function openScript(name) {
+  showLoading(true);
+  // Export just this script
+  const data = await apiJson(`/api/export?type=script`);
+  showLoading(false);
+  // Find the matching file
+  const match = (data.files || []).find(f => f.path.replace(/\//g, '\\').includes(name.replace(/\\/g, '\\').slice(1)) || f.path.includes(name.slice(1).replace(/\\/g, '/')));
+  if (!match) {
+    panel().innerHTML = `<div class="section"><h3>Script: ${escHtml(name)}</h3><p>Could not locate exported file. Try exporting manually.</p><button class="btn btn-gray" onclick="loadScripts()">Back</button></div>`;
+    return;
+  }
+  const resp = await api(`/api/file?path=${encodeURIComponent(match.full_path)}`);
+  const content = await resp.text();
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Script: ${escHtml(name)}</h3>
+      <textarea id="scriptContent">${escHtml(content)}</textarea>
+      <br>
+      <button class="btn" onclick="saveScript('${escAttr(name)}')">Save & Replace</button>
+      <button class="btn btn-gray" onclick="loadScripts()">Back</button>
+    </div>`;
+}
+
+async function saveScript(name) {
+  const content = document.getElementById('scriptContent').value;
+  showLoading(true);
+  const resp = await apiJson('/api/replace/script', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, content})
+  });
+  showLoading(false);
+  log(resp.message);
+}
+
+// ─── Text ───
+async function loadText() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=text&format=text:formatted');
+  showLoading(false);
+  let html = `<div class="section"><h3>Texts (${data.count})</h3>`;
+  html += `<table><tr><th>File</th><th>Size</th></tr>`;
+  (data.files || []).forEach(f => {
+    html += `<tr class="clickable" onclick="viewTextFile('${escAttr(f.full_path)}')"><td>${escHtml(f.path)}</td><td>${f.size}</td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+async function viewTextFile(path) {
+  const resp = await api(`/api/file?path=${encodeURIComponent(path)}`);
+  const content = await resp.text();
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Text Content</h3>
+      <textarea readonly>${escHtml(content)}</textarea>
+      <button class="btn btn-gray" onclick="loadText()">Back</button>
+    </div>`;
+}
+
+// ─── Fonts ───
+async function loadFonts() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=font');
+  showLoading(false);
+  let html = `<div class="section"><h3>Fonts (${data.count})</h3>`;
+  html += `<table><tr><th>Font File</th><th>Size</th></tr>`;
+  (data.files || []).forEach(f => {
+    html += `<tr><td>${escHtml(f.path)}</td><td>${(f.size/1024).toFixed(1)} KB</td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+// ─── Sounds ───
+async function loadSounds() {
+  showLoading(true);
+  const data = await apiJson('/api/export?type=sound');
+  showLoading(false);
+  let html = `<div class="section"><h3>Sounds (${data.count})</h3>`;
+  html += `<table><tr><th>Sound File</th><th>Size</th></tr>`;
+  (data.files || []).forEach(f => {
+    const url = `/api/file?path=${encodeURIComponent(f.full_path)}`;
+    html += `<tr><td>${escHtml(f.path)}</td><td>${(f.size/1024).toFixed(1)} KB</td><td><audio controls src="${url}" preload="none"></audio></td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+// ─── Header ───
+async function loadHeader() {
+  showLoading(true);
+  const data = await apiJson('/api/header');
+  showLoading(false);
+  panel().innerHTML = `
+    <div class="section">
+      <h3>SWF Header</h3>
+      <pre style="background:#222;padding:16px;border-radius:4px;margin-bottom:16px">${escHtml(data.header)}</pre>
+      <h3>Modify Header</h3>
+      <div class="field-row"><label>Width (px):</label><input id="hWidth" type="text" placeholder="800px"></div>
+      <div class="field-row"><label>Height (px):</label><input id="hHeight" type="text" placeholder="600px"></div>
+      <div class="field-row"><label>Frame Rate:</label><input id="hFPS" type="text" placeholder="24"></div>
+      <div class="field-row"><label>Version:</label><input id="hVersion" type="text" placeholder="10"></div>
+      <button class="btn" onclick="setHeader()">Apply Changes</button>
+    </div>`;
+}
+
+async function setHeader() {
+  const settings = {};
+  const w = document.getElementById('hWidth').value; if (w) settings.width = w;
+  const h = document.getElementById('hHeight').value; if (h) settings.height = h;
+  const fps = document.getElementById('hFPS').value; if (fps) settings.framerate = fps;
+  const ver = document.getElementById('hVersion').value; if (ver) settings.version = ver;
+  if (Object.keys(settings).length === 0) { alert('Enter at least one value'); return; }
+  showLoading(true);
+  const resp = await apiJson('/api/header', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(settings)});
+  showLoading(false);
+  log(resp.message);
+  loadHeader();
+}
+
+// ─── Layout ───
+async function loadLayout() {
+  const data = await apiJson('/api/layout');
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Login Layout (ui_layout.json)</h3>
+      <textarea id="layoutJson">${JSON.stringify(data, null, 2)}</textarea>
+      <br>
+      <button class="btn" onclick="saveLayout()">Save Layout</button>
+      <button class="btn btn-blue" onclick="window.open('http://127.0.0.1:8321','_blank')">Open Visual Editor</button>
+    </div>`;
+}
+
+async function saveLayout() {
+  try {
+    const data = JSON.parse(document.getElementById('layoutJson').value);
+    const resp = await apiJson('/api/layout', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    log(resp.message);
+  } catch(e) { alert('Invalid JSON: ' + e.message); }
+}
+
+// ─── XML ───
+async function loadXML() {
+  showLoading(true);
+  const data = await apiJson('/api/swf2xml');
+  showLoading(false);
+  if (!data.success) { panel().innerHTML = `<p>Error: ${escHtml(data.message)}</p>`; return; }
+  panel().innerHTML = `
+    <div class="section">
+      <h3>SWF XML (${(data.size/1024/1024).toFixed(1)} MB)</h3>
+      <p style="color:#888;margin-bottom:8px">Showing first 5000 chars. Full XML at: ${escHtml(data.xml_path)}</p>
+      <textarea readonly style="min-height:500px">${escHtml(data.preview)}</textarea>
+      <br>
+      <button class="btn btn-yellow" onclick="rebuildFromXML('${escAttr(data.xml_path)}')">Rebuild SWF from XML</button>
+    </div>`;
+}
+
+async function rebuildFromXML(path) {
+  if (!confirm('Rebuild SWF from XML? This will overwrite the working SWF.')) return;
+  showLoading(true);
+  const resp = await apiJson('/api/xml2swf', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({xml_path: path})});
+  showLoading(false);
+  log(resp.message);
+}
+
+// ─── Replace ───
+function loadReplace() {
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Replace Character</h3>
+      <div class="field-row"><label>Character ID:</label><input id="rCharId" type="text" placeholder="1925"></div>
+      <div class="field-row"><label>Format:</label><select id="rFormat"><option value="jpeg3">JPEG3</option><option value="lossless2">Lossless2</option><option value="lossless">Lossless</option></select></div>
+      <div class="field-row"><label>File:</label><input type="file" id="rFile" accept="image/*,audio/*,.as,.swf"></div>
+      <button class="btn" onclick="doReplace()">Replace</button>
+    </div>`;
+}
+
+async function doReplace() {
+  const charId = document.getElementById('rCharId').value;
+  const fmt = document.getElementById('rFormat').value;
+  const file = document.getElementById('rFile').files[0];
+  if (!charId || !file) { alert('Enter character ID and select file'); return; }
+  showLoading(true);
+  const data = await file.arrayBuffer();
+  const resp = await apiJson(`/api/replace/image?id=${charId}&format=${fmt}`, {method:'POST', body: new Uint8Array(data)});
+  showLoading(false);
+  log(resp.message);
+}
+
+// ─── Remove ───
+function loadRemove() {
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Remove Character</h3>
+      <div class="field-row"><label>Character ID:</label><input id="rmCharId" type="text" placeholder="1930"></div>
+      <div class="field-row"><label><input type="checkbox" id="rmDeps"> Remove with dependencies</label></div>
+      <button class="btn btn-red" onclick="doRemove()">Remove</button>
+    </div>`;
+}
+
+async function doRemove() {
+  const charId = document.getElementById('rmCharId').value;
+  const withDeps = document.getElementById('rmDeps').checked;
+  if (!charId) { alert('Enter character ID'); return; }
+  if (!confirm(`Remove character ${charId}${withDeps ? ' with dependencies' : ''}?`)) return;
+  showLoading(true);
+  const resp = await apiJson('/api/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: charId, with_deps: withDeps})});
+  showLoading(false);
+  log(resp.message);
+}
+
+// ─── SWF Picker ───
+async function openSWFPicker() {
+  showLoading(true);
+  const data = await apiJson('/api/swfs');
+  showLoading(false);
+  let html = `<div class="section"><h3>Available SWF Files</h3><table><tr><th>Name</th><th>Location</th><th>Size</th><th></th></tr>`;
+  (data.swfs || []).forEach(s => {
+    html += `<tr><td>${escHtml(s.name)}</td><td>${escHtml(s.dir)}</td><td>${(s.size/1024/1024).toFixed(1)} MB</td>
+      <td><button class="btn btn-gray" onclick="switchSWF('${escAttr(s.path)}')">Open</button></td></tr>`;
+  });
+  html += `</table></div>`;
+  panel().innerHTML = html;
+}
+
+async function switchSWF(path) {
+  showLoading(true);
+  const resp = await apiJson('/api/open', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path})});
+  showLoading(false);
+  log(resp.message);
+  loadInfo();
+  loadTab(currentTab);
+}
+
+// ─── Actions ───
+async function runBuild() {
+  showLoading(true); log('Building...');
+  const resp = await apiJson('/api/build', {method:'POST'});
+  showLoading(false);
+  log(resp.output);
+  log(resp.success ? 'BUILD SUCCESS' : 'BUILD FAILED');
+}
+async function runDeploy() {
+  showLoading(true); log('Deploying...');
+  const resp = await apiJson('/api/deploy', {method:'POST'});
+  showLoading(false);
+  log(resp.output);
+  log(resp.success ? 'DEPLOY SUCCESS' : 'DEPLOY FAILED');
+}
+async function runLaunch() {
+  const resp = await apiJson('/api/launch', {method:'POST'});
+  log(resp.output);
+}
+
+// ─── Tab Router ───
+function loadTab(tab) {
+  switch(tab) {
+    case 'home': loadHome(); break;
+    case 'tags': loadTags(); break;
+    case 'images': loadImages(); break;
+    case 'shapes': loadShapes(); break;
+    case 'sprites': loadSprites(); break;
+    case 'scripts': loadScripts(); break;
+    case 'text': loadText(); break;
+    case 'fonts': loadFonts(); break;
+    case 'sounds': loadSounds(); break;
+    case 'header': loadHeader(); break;
+    case 'layout': loadVisualLayout(); break;
+    case 'xml': loadXML(); break;
+    case 'replace': loadReplace(); break;
+    case 'remove': loadRemove(); break;
+  }
+}
+
+// ─── Quick Actions Home ───
+function loadHome() {
+  panel().innerHTML = `
+    <div class="section">
+      <h3>Quick Actions</h3>
+      <p style="color:#888;margin-bottom:16px">Common tasks in one click. Changes are saved to the working SWF immediately.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px">
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('layout');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=layout]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">Move / Resize Controls</h3>
+          <p style="font-size:12px;color:#999">Drag buttons and text fields to new positions. Adjust scale with sliders. See changes on the stage background.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('images');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=images]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">Replace Images</h3>
+          <p style="font-size:12px;color:#999">Browse all images in the SWF. Click any image to preview it full-size and replace it with your own file.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('scripts');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=scripts]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">Edit Scripts</h3>
+          <p style="font-size:12px;color:#999">View and modify ActionScript code. Change button behaviors, login logic, text content, and more.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('header');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=header]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">SWF Properties</h3>
+          <p style="font-size:12px;color:#999">Change stage dimensions, frame rate, SWF version, and other header properties.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('replace');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=replace]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">Replace Any Character</h3>
+          <p style="font-size:12px;color:#999">Replace any character by ID with your own image, shape, or sound file.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:left;padding:16px" onclick="loadTab('remove');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-tab=remove]').classList.add('active')">
+          <h3 style="color:#0cf;margin-bottom:4px">Remove Elements</h3>
+          <p style="font-size:12px;color:#999">Remove unwanted characters, shapes, or decorative elements from the SWF entirely.</p>
+        </div>
+      </div>
+      <h3 style="margin-top:24px">Pipeline</h3>
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <button class="btn" onclick="runBuildDeployLaunch()">Build + Deploy + Launch</button>
+        <button class="btn btn-gray" onclick="runBuild()">Build Only</button>
+        <button class="btn btn-gray" onclick="runDeploy()">Deploy Only</button>
+        <button class="btn btn-blue" onclick="runLaunch()">Launch Game</button>
+      </div>
+      <h3 style="margin-top:24px">Currently Editing</h3>
+      <div id="homeInfo" style="background:#222;padding:12px;border-radius:4px;font-size:12px;color:#aaa">Loading...</div>
+    </div>`;
+  loadHomeInfo();
+}
+
+async function loadHomeInfo() {
+  const info = await apiJson('/api/info');
+  document.getElementById('homeInfo').innerHTML = `
+    <strong>${info.swf_name}</strong> (${(info.swf_size/1024/1024).toFixed(1)} MB)<br>
+    <pre style="margin-top:8px;color:#888">${escHtml(info.header)}</pre>`;
+}
+
+async function runBuildDeployLaunch() {
+  await runBuild();
+  await runDeploy();
+  await runLaunch();
+}
+
+// ─── Visual Layout Editor (integrated) ───
+async function loadVisualLayout() {
+  const layout = await apiJson('/api/layout');
+  const sprite = layout.sprites?.[0] || {instances:{}};
+  const instances = sprite.instances || {};
+
+  // Known native sizes for the controls
+  const nativeSizes = {
+    btnFBConnect: {w: 174, h: 29},
+    btnCreateAccount: {w: 172, h: 29},
+    btnStart: {w: 172, h: 29},
+    fldUsername: {w: 150, h: 22},
+    fldPass: {w: 150, h: 22},
+  };
+
+  let controlsHtml = '';
+  for (const [name, spec] of Object.entries(instances)) {
+    const native = nativeSizes[name] || {w: 100, h: 25};
+    const sx = spec.scaleX || 1;
+    const sy = spec.scaleY || 1;
+    const w = Math.round(native.w * sx);
+    const h = Math.round(native.h * sy);
+    const imgMap = {btnFBConnect:'/api/button/btnFBConnect', btnCreateAccount:'/api/button/btnCreateAccount', btnStart:'/api/button/btnStart'};
+    const inner = imgMap[name] ? `<img src="${imgMap[name]}" style="width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:0.9">` : name;
+    controlsHtml += `<div class="vl-control" data-name="${name}" style="left:${spec.x}px;top:${spec.y}px;width:${w}px;height:${h}px">${inner}</div>`;
+  }
+
+  let propsHtml = '';
+  for (const name of Object.keys(instances)) {
+    const spec = instances[name];
+    propsHtml += `
+      <div class="vl-prop" data-name="${name}" style="display:none">
+        <h4 style="color:#0cf;margin-bottom:8px">${name}</h4>
+        <div class="field-row"><label>X:</label><input type="number" class="vl-x" value="${spec.x}" step="1"></div>
+        <div class="field-row"><label>Y:</label><input type="number" class="vl-y" value="${spec.y}" step="1"></div>
+        <div class="field-row"><label>Scale X:</label><input type="range" class="vl-sx" min="0.1" max="5" step="0.05" value="${spec.scaleX||1}"><span class="vl-sx-val">${spec.scaleX||1}</span></div>
+        <div class="field-row"><label>Scale Y:</label><input type="range" class="vl-sy" min="0.1" max="5" step="0.05" value="${spec.scaleY||1}"><span class="vl-sy-val">${spec.scaleY||1}</span></div>
+      </div>`;
+  }
+
+  panel().innerHTML = `
+    <div style="display:flex;gap:16px;height:100%">
+      <div style="flex:1;position:relative">
+        <div id="vlStage" style="position:relative;width:800px;height:600px;background:#000;overflow:hidden;border:1px solid #444">
+          <img src="/api/background" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none" onerror="this.style.display='none'">
+          ${controlsHtml}
+          <div id="vlCoords" style="position:absolute;bottom:4px;right:8px;background:rgba(0,0,0,0.8);color:#0cf;padding:3px 8px;border-radius:4px;font-size:11px;font-family:monospace">x: 0, y: 0</div>
+        </div>
+      </div>
+      <div style="width:280px;background:#222;padding:12px;border-radius:4px;overflow-y:auto">
+        <h3 style="color:#0cf;margin-bottom:12px">Controls</h3>
+        <select id="vlSelect" style="width:100%;margin-bottom:12px">${Object.keys(instances).map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
+        ${propsHtml}
+        <button class="btn" onclick="saveVisualLayout()" style="width:100%;margin-top:16px">Save Layout</button>
+        <button class="btn btn-gray" onclick="runBuild()" style="width:100%;margin-top:8px">Build SWF</button>
+        <button class="btn btn-blue" onclick="runBuildDeployLaunch()" style="width:100%;margin-top:8px">Build + Deploy + Launch</button>
+      </div>
+    </div>`;
+
+  // Wire up visual layout interactions
+  initVisualLayout(layout);
+}
+
+function initVisualLayout(layout) {
+  const stage = document.getElementById('vlStage');
+  const select = document.getElementById('vlSelect');
+  let dragging = null, dragOff = {x:0, y:0};
+  let selectedName = Object.keys(layout.sprites[0].instances)[0];
+
+  function selectControl(name) {
+    selectedName = name;
+    select.value = name;
+    document.querySelectorAll('.vl-control').forEach(el => el.style.borderColor = el.dataset.name === name ? '#ff0' : 'rgba(0,200,255,0.7)');
+    document.querySelectorAll('.vl-prop').forEach(el => el.style.display = el.dataset.name === name ? 'block' : 'none');
+  }
+
+  selectControl(selectedName);
+  select.onchange = () => selectControl(select.value);
+
+  // Drag controls
+  document.querySelectorAll('.vl-control').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      selectControl(el.dataset.name);
+      dragging = el.dataset.name;
+      const rect = el.getBoundingClientRect();
+      dragOff = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+      e.preventDefault();
+    });
+  });
+
+  stage.addEventListener('mousemove', e => {
+    const rect = stage.getBoundingClientRect();
+    const mx = Math.round(e.clientX - rect.left);
+    const my = Math.round(e.clientY - rect.top);
+    document.getElementById('vlCoords').textContent = `x: ${mx}, y: ${my}`;
+    if (!dragging) return;
+    const x = Math.round(e.clientX - rect.left - dragOff.x);
+    const y = Math.round(e.clientY - rect.top - dragOff.y);
+    const el = document.querySelector(`.vl-control[data-name="${dragging}"]`);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    layout.sprites[0].instances[dragging].x = x;
+    layout.sprites[0].instances[dragging].y = y;
+    const prop = document.querySelector(`.vl-prop[data-name="${dragging}"]`);
+    prop.querySelector('.vl-x').value = x;
+    prop.querySelector('.vl-y').value = y;
+  });
+
+  document.addEventListener('mouseup', () => { dragging = null; });
+
+  // Wire up property inputs
+  document.querySelectorAll('.vl-prop').forEach(prop => {
+    const name = prop.dataset.name;
+    const xInput = prop.querySelector('.vl-x');
+    const yInput = prop.querySelector('.vl-y');
+    const sxInput = prop.querySelector('.vl-sx');
+    const syInput = prop.querySelector('.vl-sy');
+    const sxVal = prop.querySelector('.vl-sx-val');
+    const syVal = prop.querySelector('.vl-sy-val');
+
+    const nativeSizes = {btnFBConnect:{w:174,h:29},btnCreateAccount:{w:172,h:29},btnStart:{w:172,h:29},fldUsername:{w:150,h:22},fldPass:{w:150,h:22}};
+    const native = nativeSizes[name] || {w:100,h:25};
+
+    function update() {
+      const spec = layout.sprites[0].instances[name];
+      spec.x = parseFloat(xInput.value);
+      spec.y = parseFloat(yInput.value);
+      spec.scaleX = parseFloat(sxInput.value);
+      spec.scaleY = parseFloat(syInput.value);
+      sxVal.textContent = spec.scaleX.toFixed(2);
+      syVal.textContent = spec.scaleY.toFixed(2);
+      const el = document.querySelector(`.vl-control[data-name="${name}"]`);
+      el.style.left = spec.x + 'px';
+      el.style.top = spec.y + 'px';
+      el.style.width = Math.round(native.w * spec.scaleX) + 'px';
+      el.style.height = Math.round(native.h * spec.scaleY) + 'px';
+    }
+    xInput.oninput = update;
+    yInput.oninput = update;
+    sxInput.oninput = update;
+    syInput.oninput = update;
+  });
+
+  // Store layout reference for save
+  window._vlLayout = layout;
+}
+
+async function saveVisualLayout() {
+  if (!window._vlLayout) return;
+  showLoading(true);
+  const resp = await apiJson('/api/layout', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(window._vlLayout)});
+  showLoading(false);
+  log(resp.message || 'Layout saved');
+}
+
+// ─── Utilities ───
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g, "\\'").replace(/\\/g, "\\\\"); }
+function filterTable(tableId, query) {
+  const rows = document.querySelectorAll(`#${tableId} tr`);
+  const q = query.toLowerCase();
+  rows.forEach((row, i) => { if (i === 0) return; row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+}
+function filterGrid(query) {
+  const cards = document.querySelectorAll('#imgGrid .card');
+  const q = query.toLowerCase();
+  cards.forEach(card => { card.style.display = card.dataset.name.includes(q) ? '' : 'none'; });
+}
+
+// Init
+loadInfo();
+loadTab('home');
+</script>
+</body>
+</html>

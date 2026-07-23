@@ -1,0 +1,8 @@
+{
+  "ffdec_path": "C:\\Program Files (x86)\\FFDec\\ffdec-cli.exe",
+  "game_root": "C:\\Users\\hunte\\Downloads\\Open1320Legends",
+  "game_exe": "NittoLegendsBeta.exe",
+  "main_swf_embed_offset": 4794808,
+  "cache_root": "cache",
+  "notes": "Edit game_root if your playable install lives elsewhere."
+}
