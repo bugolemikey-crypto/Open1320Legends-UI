@@ -44,43 +44,27 @@ function drawFinishPicker()
    finishPicker.removeMovieClip();
    selectedFinish = 0;
    classes.CarConstruction.finishOverride = 0;
-   // Sits on the price-description row, to the right of the price text, which is
-   // the one band in this shop guaranteed to be clear. Do NOT place it below the
-   // swatch grid: the swatch art is far taller than its yIndent row pitch and
-   // the rows stagger, so any position derived from row count lands inside the
-   // grid and gets buried. Explicit high depth for the same reason.
+   // Built from the shop's own shopMenuListItem symbol rather than a runtime
+   // TextField. Two attempts at createTextField here rendered the plate but never
+   // the label: a runtime field with the "_sans" device font draws nothing in this
+   // Director-hosted player. shopMenuListItem already renders text correctly (it
+   // is what draws the menu above), carries its own `txt` setter and `fld`, and
+   // works when attached to a createEmptyMovieClip - drawMenu does exactly that.
+   // Placed under btnSpecific in the left menu column, read from the instance at
+   // runtime so it tracks the real layout, and where there is guaranteed room.
    finishPicker = this.createEmptyMovieClip("finishPicker",20000);
-   finishPicker._x = paintSwatchContainer._x + 150;
-   finishPicker._y = paintSwatchContainer._y - 24;
+   finishPicker._x = btnSpecific._x;
+   finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   var _loc7_ = new Array("GLOSS","MATTE","SATIN","CANDY");
-   var _loc5_ = new TextFormat();
-   _loc5_.font = "_sans";
-   _loc5_.size = 9;
-   _loc5_.bold = true;
-   _loc5_.align = "center";
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish");
    var _loc2_ = 0;
    var _loc3_;
-   var _loc4_;
-   while(_loc2_ < _loc7_.length)
+   while(_loc2_ < _loc4_.length)
    {
-      _loc3_ = finishPicker.createEmptyMovieClip("fin" + _loc2_,_loc2_ + 1);
-      _loc3_._x = _loc2_ * 62;
+      _loc3_ = finishPicker.attachMovie("shopMenuListItem","fin" + _loc2_,_loc2_ + 1);
+      _loc3_._y = _loc2_ * paintMenuYSpacing;
       _loc3_.finishID = _loc2_;
-      // The plate is its own child so highlightFinish can clear() and redraw it
-      // without touching the label. Drawing into the button clip itself and then
-      // clearing it is what lost the labels. Field sits at depth 2, above it.
-      _loc3_.createEmptyMovieClip("plate",1);
-      _loc3_.createTextField("fld",2,0,3,58,16);
-      _loc4_ = _loc3_.fld;
-      _loc4_.selectable = false;
-      _loc4_.multiline = false;
-      _loc4_.wordWrap = false;
-      _loc4_.embedFonts = false;
-      _loc4_.textColor = 16777215;
-      _loc4_.setNewTextFormat(_loc5_);
-      _loc4_.text = _loc7_[_loc2_];
-      _loc4_.setTextFormat(_loc5_);
+      _loc3_.txt = _loc4_[_loc2_];
       _loc3_.onRelease = function()
       {
          setFinish(this.finishID);
@@ -100,27 +84,19 @@ function setFinish(fin)
 }
 function highlightFinish()
 {
+   // tfInit (white) / tfNA (grey) are the shop's own menu formats, so the
+   // selected finish reads the same way a selected menu row does.
    var _loc1_ = 0;
-   var _loc2_;
    while(_loc1_ < finishBtnArray.length)
    {
-      _loc2_ = finishBtnArray[_loc1_].plate;
-      _loc2_.clear();
       if(_loc1_ == selectedFinish)
       {
-         _loc2_.beginFill(14827572,100);
+         finishBtnArray[_loc1_].fld.setTextFormat(tfInit);
       }
       else
       {
-         _loc2_.beginFill(3355443,100);
+         finishBtnArray[_loc1_].fld.setTextFormat(tfNA);
       }
-      _loc2_.moveTo(0,0);
-      _loc2_.lineTo(58,0);
-      _loc2_.lineTo(58,18);
-      _loc2_.lineTo(0,18);
-      _loc2_.lineTo(0,0);
-      _loc2_.endFill();
-      finishBtnArray[_loc1_].fld.textColor = 16777215;
       _loc1_ = _loc1_ + 1;
    }
 }
@@ -139,7 +115,6 @@ function drawMenu()
    if(isWholeCar)
    {
       paintSwatchContainer._x = priceDescription._x = 200;
-      finishPicker._x = 350;
       _loc5_ = _global.paintCategoriesXML.firstChild;
       _loc4_ = 0;
       while(_loc4_ < _loc5_.childNodes.length)
@@ -156,7 +131,6 @@ function drawMenu()
    else
    {
       paintSwatchContainer._x = priceDescription._x = 350;
-      finishPicker._x = 500;
       _loc5_ = _global.paintCategoriesXML.firstChild;
       tfNA = new TextFormat();
       tfNA.color = 6710886;
