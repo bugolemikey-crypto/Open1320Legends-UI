@@ -67,10 +67,20 @@ function drawFinishPicker()
       _loc3_ = finishPicker.createEmptyMovieClip("fin" + _loc2_,_loc2_ + 1);
       _loc3_._x = _loc2_ * 62;
       _loc3_.finishID = _loc2_;
-      _loc4_ = _loc3_.createTextField("fld",1,0,3,58,16);
+      // The plate is its own child so highlightFinish can clear() and redraw it
+      // without touching the label. Drawing into the button clip itself and then
+      // clearing it is what lost the labels. Field sits at depth 2, above it.
+      _loc3_.createEmptyMovieClip("plate",1);
+      _loc3_.createTextField("fld",2,0,3,58,16);
+      _loc4_ = _loc3_.fld;
       _loc4_.selectable = false;
+      _loc4_.multiline = false;
+      _loc4_.wordWrap = false;
+      _loc4_.embedFonts = false;
+      _loc4_.textColor = 16777215;
       _loc4_.setNewTextFormat(_loc5_);
       _loc4_.text = _loc7_[_loc2_];
+      _loc4_.setTextFormat(_loc5_);
       _loc3_.onRelease = function()
       {
          setFinish(this.finishID);
@@ -94,7 +104,7 @@ function highlightFinish()
    var _loc2_;
    while(_loc1_ < finishBtnArray.length)
    {
-      _loc2_ = finishBtnArray[_loc1_];
+      _loc2_ = finishBtnArray[_loc1_].plate;
       _loc2_.clear();
       if(_loc1_ == selectedFinish)
       {
@@ -110,7 +120,7 @@ function highlightFinish()
       _loc2_.lineTo(0,18);
       _loc2_.lineTo(0,0);
       _loc2_.endFill();
-      _loc2_.fld.textColor = 16777215;
+      finishBtnArray[_loc1_].fld.textColor = 16777215;
       _loc1_ = _loc1_ + 1;
    }
 }
