@@ -59,6 +59,10 @@ from unhide_character import unhide
 
 BASE = ROOT / "patches" / "main_client" / "main.dark-ui.current.swf"
 OUTPUT = ROOT / "patches" / "main_client" / "main.polish.swf"
+# deploy_patches.py embeds patches/<target-id>/main.swf, NOT our OUTPUT name, so
+# the build has to publish itself there or a deploy silently ships a stale exe
+# while still printing "Deployed embedded main.swf". That has now happened twice.
+DEPLOY_SOURCE = ROOT / "patches" / "main_client" / "main.swf"
 LOGIN_PREPARED = ROOT / "assets" / "login" / "prepared"
 LOGIN_CONSOLE_OVERLAY = LOGIN_PREPARED / "login_console_overlay.png"
 HEADER_PREPARED = ROOT / "assets" / "header" / "prepared"
@@ -412,8 +416,13 @@ def main() -> None:
         if built < target:
             pad_swf(OUTPUT, target)
 
+    # Publish to the path the deployer actually reads. After padding, so the
+    # deployed bytes are the ones measured above.
+    shutil.copy2(OUTPUT, DEPLOY_SOURCE)
+
     print(f"Polish patch: {OUTPUT} ({OUTPUT.stat().st_size:,} bytes; "
           f"{target - built:,} bytes spare before padding)")
+    print(f"Deploy source: {DEPLOY_SOURCE} (identical copy for deploy_patches.py)")
 
 
 if __name__ == "__main__":
