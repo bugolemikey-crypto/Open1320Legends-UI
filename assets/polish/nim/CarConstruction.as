@@ -12,7 +12,11 @@ class classes.CarConstruction
    var optionalPartsArr = new Array("roofEffect","spoiler","eyelids","hoodFrontEffect","hoodCenterEffect","sideEffect","cPillarEffect","fenderEffect","doorEffect","grille","top","lights","tailLights");
    static var corePartsArr = new Array("wheelMaskAddF","wheelMaskAddR","roofEffect","spoiler","eyelids","hoodFrontEffect","hoodCenterEffect","sideEffect","cPillarEffect","fenderEffect","doorEffect","hood","grille","top","bumper","bumperRear","lights","tailLights","skirt","body","bodyOpp","trunk","underCarriage");
    var wheelPartsArr = new Array("wheelF","wheelR","tireF","tireR","brake","tireBack");
-   static var finishOverride = 0;
+   // Finish per account car ID. A single global override made every car in the
+   // client take whatever was last picked in the paint shop; keyed by car, the
+   // finish follows the car into the garage, viewer and race instead. Session
+   // scoped - the server never sees it, see setColors.
+   static var finishMap = new Object();
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -336,12 +340,24 @@ class classes.CarConstruction
       }
       target.shad.filters = _loc2_;
    }
-   function setFinishes(fin)
+   function setFinishes(fin, carID)
    {
+      // The high byte of cc wins if the server ever carries one; otherwise fall
+      // back to the local per-car map. setPartColor masks with 0xFFFFFF, so an
+      // 8-character cc can never corrupt the hue either way.
+      var _loc3_ = fin;
+      if(!_loc3_)
+      {
+         _loc3_ = Number(classes.CarConstruction.finishMap[carID]);
+      }
+      if(!_loc3_)
+      {
+         _loc3_ = 0;
+      }
       var _loc2_ = 0;
       while(_loc2_ < this.partsArr.length)
       {
-         this.setPartFinish(this.__MC[this.partsArr[_loc2_]],!fin ? classes.CarConstruction.finishOverride : fin);
+         this.setPartFinish(this.__MC[this.partsArr[_loc2_]],_loc3_);
          _loc2_ = _loc2_ + 1;
       }
    }
@@ -434,7 +450,7 @@ class classes.CarConstruction
             }
          }
       }
-      this.setFinishes(cs.globalClr >>> 24);
+      this.setFinishes(cs.globalClr >>> 24,cs.acctCarID);
    }
    function garbageCollect()
    {

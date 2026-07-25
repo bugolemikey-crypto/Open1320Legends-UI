@@ -42,8 +42,13 @@ function drawSwatches()
 function drawFinishPicker()
 {
    finishPicker.removeMovieClip();
-   selectedFinish = 0;
-   classes.CarConstruction.finishOverride = 0;
+   // Show whatever finish this car already carries rather than resetting it, now
+   // that the finish is keyed per car instead of being one global override.
+   selectedFinish = Number(classes.CarConstruction.finishMap[accountCarID]);
+   if(!selectedFinish)
+   {
+      selectedFinish = 0;
+   }
    // Built from the shop's own shopMenuListItem symbol rather than a runtime
    // TextField. Two attempts at createTextField here rendered the plate but never
    // the label: a runtime field with the "_sans" device font draws nothing in this
@@ -77,7 +82,7 @@ function drawFinishPicker()
 function setFinish(fin)
 {
    selectedFinish = fin;
-   classes.CarConstruction.finishOverride = fin;
+   classes.CarConstruction.finishMap[accountCarID] = fin;
    highlightFinish();
    classes.Drawing.clearThisCarsBmps(carHolder);
    classes.Drawing.carView(carHolder,cloneXML,100,!isBack ? "front" : "back");

@@ -89,10 +89,11 @@ AVATAR_UPLOAD = ROOT / "assets" / "polish" / "nim" / "AvatarUploadBox.as"
 # the stock setPartPrimer already does - no new layers, no per-frame cost, since
 # Drawing.snapshotCar flattens the car to a BitmapData afterwards. The finish id
 # is read from the high byte of globalClr, which is 0 on every stock car, so a
-# server that truncates `cc` to six hex digits leaves every car on gloss.
-# TEST_CYCLE in that class currently spreads gloss/matte/satin/candy across the
-# panels so one garage screenshot validates all three new finishes.
+# server that truncates `cc` to six hex digits leaves every car on gloss. When it
+# does, the finish falls back to CarConstruction.finishMap, keyed by account car
+# id - which is why CarSpecs is recompiled too, purely to carry that id through.
 CAR_CONSTRUCTION = ROOT / "assets" / "polish" / "nim" / "CarConstruction.as"
+CAR_SPECS = ROOT / "assets" / "polish" / "nim" / "CarSpecs.as"
 
 # Character id -> (source art, byte budget). These go through replace_jpeg3
 # rather than FFDec because their sizes have to be searched for, not accepted.
@@ -309,6 +310,12 @@ def main() -> None:
         painted = temp / "polish-painted.swf"
         run([ffdec, "-replace", str(avatared), str(painted),
              "\\__Packages\\classes\\CarConstruction", str(CAR_CONSTRUCTION)])
+        # One added line: carry the account car id through as a spec, so the
+        # finish can be keyed per car. Same post-login risk class as
+        # CarConstruction - CarSpecs is only touched when a car is drawn.
+        specced = temp / "polish-specced.swf"
+        run([ffdec, "-replace", str(painted), str(specced),
+             "\\__Packages\\classes\\CarSpecs", str(CAR_SPECS)])
         # The paint shop's GLOSS/MATTE/SATIN/CANDY picker, which drives the
         # finish through classes.CarConstruction.finishOverride. This is the
         # named DoAction (the function definitions), addressable by -replace;
@@ -317,7 +324,7 @@ def main() -> None:
         # also drops a debug for-in loop whose decompiled `each` identifier is
         # FFDec-escaped and would not survive a recompile.
         shopped = temp / "polish-shopped.swf"
-        run([ffdec, "-replace", str(painted), str(shopped),
+        run([ffdec, "-replace", str(specced), str(shopped),
              "\\DefineSprite_3719\\frame_1\\DoAction", str(PAINT_SHOP_ACTION)])
         run([ffdec, "-replace", str(shopped), str(art),
              "1925", str(LOGIN_PREPARED / "login_bitmap_850x650.jpg"), "jpeg3",
