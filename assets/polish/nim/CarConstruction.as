@@ -12,7 +12,7 @@ class classes.CarConstruction
    var optionalPartsArr = new Array("roofEffect","spoiler","eyelids","hoodFrontEffect","hoodCenterEffect","sideEffect","cPillarEffect","fenderEffect","doorEffect","grille","top","lights","tailLights");
    static var corePartsArr = new Array("wheelMaskAddF","wheelMaskAddR","roofEffect","spoiler","eyelids","hoodFrontEffect","hoodCenterEffect","sideEffect","cPillarEffect","fenderEffect","doorEffect","hood","grille","top","bumper","bumperRear","lights","tailLights","skirt","body","bodyOpp","trunk","underCarriage");
    var wheelPartsArr = new Array("wheelF","wheelR","tireF","tireR","brake","tireBack");
-   static var TEST_CYCLE = true;
+   static var finishOverride = 0;
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -256,7 +256,7 @@ class classes.CarConstruction
       target.hi._alpha = 100;
       var _loc2_ = target.shad.filters;
       target.shad.filters = [_loc2_[0]];
-      target.clr.setRGB(newClr);
+      target.clr.setRGB(newClr & 16777215);
       false;
    }
    function setPartPrimer(target)
@@ -283,7 +283,7 @@ class classes.CarConstruction
       {
          return undefined;
       }
-      target.hi.blendMode = fin != 3 ? "screen" : "hardlight";
+      target.hi.blendMode = "screen";
       target.hi.filters = [target.fltrHi];
       if(!fin)
       {
@@ -292,19 +292,19 @@ class classes.CarConstruction
       var _loc2_ = target.shad.filters;
       if(fin == 1)
       {
-         target.hi._alpha = 50;
-         _loc2_.push(this.liftFilter(50));
+         target.hi._alpha = 24;
+         _loc2_.push(this.liftFilter(18));
       }
       else if(fin == 2)
       {
-         target.hi._alpha = 74;
-         _loc2_.push(this.liftFilter(18));
+         target.hi._alpha = 58;
+         _loc2_.push(this.liftFilter(7));
       }
       else if(fin == 3)
       {
-         target.hi._alpha = 96;
-         target.hi.filters = [target.fltrHi,new flash.filters.ColorMatrixFilter([1,0,0,0,0,0,0.62,0,0,0,0,0,0.24,0,0,0,0,0,1,0])];
-         _loc2_.push(this.liftFilter(-22));
+         target.hi._alpha = 100;
+         target.hi.filters = [target.fltrHi,new flash.filters.ColorMatrixFilter([1,0,0,0,0,0,0.7,0,0,0,0,0,0.38,0,0,0,0,0,1,0])];
+         _loc2_.push(this.liftFilter(-8));
       }
       target.shad.filters = _loc2_;
    }
@@ -313,7 +313,7 @@ class classes.CarConstruction
       var _loc2_ = 0;
       while(_loc2_ < this.partsArr.length)
       {
-         this.setPartFinish(this.__MC[this.partsArr[_loc2_]],!fin && classes.CarConstruction.TEST_CYCLE ? _loc2_ % 4 : fin);
+         this.setPartFinish(this.__MC[this.partsArr[_loc2_]],!fin ? classes.CarConstruction.finishOverride : fin);
          _loc2_ = _loc2_ + 1;
       }
    }

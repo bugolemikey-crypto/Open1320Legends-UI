@@ -69,6 +69,8 @@ HEADER_PREPARED = ROOT / "assets" / "header" / "prepared"
 POLISH_PREPARED = ROOT / "assets" / "polish" / "prepared"
 HOME_PREPARED = ROOT / "assets" / "home" / "prepared"
 LOGIN_ACTION = ROOT / "assets" / "polish" / "DefineSprite_2002_frame_1_DoAction.as"
+PAINT_SHOP_ACTION = (ROOT / "assets" / "polish"
+                     / "DefineSprite_3719_frame_1_DoAction.as")
 STARTUP_SCRIPTS = ROOT / "assets" / "polish" / "startup"
 # classes.Console is edited as separate files under assets/polish/nim/console/
 # (see nim_console_parts) and concatenated into one class at build time, because
@@ -304,14 +306,20 @@ def main() -> None:
         # failure is unambiguous. CarConstruction only runs when a car is drawn,
         # i.e. after login - unlike classes.Drawing, whose recompile has hung
         # this client at startup before.
-        # Paint finishes (see CAR_CONSTRUCTION). Its own -replace so a compile
-        # failure is unambiguous. CarConstruction only runs when a car is drawn,
-        # i.e. after login - unlike classes.Drawing, whose recompile has hung
-        # this client at startup before.
         painted = temp / "polish-painted.swf"
         run([ffdec, "-replace", str(avatared), str(painted),
-             "\__Packages\classes\CarConstruction", str(CAR_CONSTRUCTION)])
-        run([ffdec, "-replace", str(painted), str(art),
+             "\\__Packages\\classes\\CarConstruction", str(CAR_CONSTRUCTION)])
+        # The paint shop's GLOSS/MATTE/SATIN/CANDY picker, which drives the
+        # finish through classes.CarConstruction.finishOverride. This is the
+        # named DoAction (the function definitions), addressable by -replace;
+        # the sibling DoAction_2 holding the init code is not, so the picker is
+        # built from drawSwatches() rather than from the init script. The edit
+        # also drops a debug for-in loop whose decompiled `each` identifier is
+        # FFDec-escaped and would not survive a recompile.
+        shopped = temp / "polish-shopped.swf"
+        run([ffdec, "-replace", str(painted), str(shopped),
+             "\\DefineSprite_3719\\frame_1\\DoAction", str(PAINT_SHOP_ACTION)])
+        run([ffdec, "-replace", str(shopped), str(art),
              "1925", str(LOGIN_PREPARED / "login_bitmap_850x650.jpg"), "jpeg3",
              # The three console buttons. These were only ever replaced by the
              # older build_deployable_login.py, so every regeneration of them in
