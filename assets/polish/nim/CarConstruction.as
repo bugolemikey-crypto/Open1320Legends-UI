@@ -276,6 +276,34 @@ class classes.CarConstruction
    {
       return new flash.filters.ColorMatrixFilter([1,0,0,0,v,0,1,0,0,v,0,0,1,0,v,0,0,0,1,0]);
    }
+   function candyFilter(c)
+   {
+      var _loc5_ = (c >> 16 & 255) / 255;
+      var _loc4_ = (c >> 8 & 255) / 255;
+      var _loc3_ = (c & 255) / 255;
+      var _loc2_ = _loc5_;
+      if(_loc4_ > _loc2_)
+      {
+         _loc2_ = _loc4_;
+      }
+      if(_loc3_ > _loc2_)
+      {
+         _loc2_ = _loc3_;
+      }
+      if(_loc2_ <= 0)
+      {
+         _loc5_ = 1;
+         _loc4_ = 1;
+         _loc3_ = 1;
+      }
+      else
+      {
+         _loc5_ = 0.38 + 0.62 * (_loc5_ / _loc2_);
+         _loc4_ = 0.38 + 0.62 * (_loc4_ / _loc2_);
+         _loc3_ = 0.38 + 0.62 * (_loc3_ / _loc2_);
+      }
+      return new flash.filters.ColorMatrixFilter([_loc5_,0,0,0,0,0,_loc4_,0,0,0,0,0,_loc3_,0,0,0,0,0,1,0]);
+   }
    function setPartFinish(target, fin)
    {
       target = target.actual;
@@ -303,7 +331,7 @@ class classes.CarConstruction
       else if(fin == 3)
       {
          target.hi._alpha = 100;
-         target.hi.filters = [target.fltrHi,new flash.filters.ColorMatrixFilter([1,0,0,0,0,0,0.7,0,0,0,0,0,0.38,0,0,0,0,0,1,0])];
+         target.hi.filters = [target.fltrHi,this.candyFilter(target.clr.getRGB())];
          _loc2_.push(this.liftFilter(-8));
       }
       target.shad.filters = _loc2_;
