@@ -306,7 +306,14 @@ class classes.CarConstruction
          _loc4_ = 0.38 + 0.62 * (_loc4_ / _loc2_);
          _loc3_ = 0.38 + 0.62 * (_loc3_ / _loc2_);
       }
-      return new flash.filters.ColorMatrixFilter([_loc5_,0,0,0,0,0,_loc4_,0,0,0,0,0,_loc3_,0,0,0,0,0,1,0]);
+      // Contrast is folded into the same matrix. fltrHi has already flattened
+      // every channel to luminance L, so each row reads only its own channel:
+      // out = tint * (2.3L - 150). Everything below L~65 clamps to black, which
+      // turns the broad gloss highlight into a tight bloom - that tightness is
+      // what reads as candy. Tint alone was not enough: normalising to the
+      // brightest channel makes the effect depend on how many channels are low,
+      // so it was strong on red (1, .38, .38) and invisible on yellow (1, 1, .38).
+      return new flash.filters.ColorMatrixFilter([2.3 * _loc5_,0,0,0,-150 * _loc5_,0,2.3 * _loc4_,0,0,-150 * _loc4_,0,0,2.3 * _loc3_,0,-150 * _loc3_,0,0,0,1,0]);
    }
    function setPartFinish(target, fin)
    {
@@ -324,8 +331,9 @@ class classes.CarConstruction
       var _loc2_ = target.shad.filters;
       if(fin == 1)
       {
-         target.hi._alpha = 24;
-         _loc2_.push(this.liftFilter(18));
+         // No specular at all. 24% still left a visible sheen on large panels.
+         target.hi._alpha = 0;
+         _loc2_.push(this.liftFilter(22));
       }
       else if(fin == 2)
       {
@@ -336,7 +344,7 @@ class classes.CarConstruction
       {
          target.hi._alpha = 100;
          target.hi.filters = [target.fltrHi,this.candyFilter(target.clr.getRGB())];
-         _loc2_.push(this.liftFilter(-8));
+         _loc2_.push(this.liftFilter(-14));
       }
       target.shad.filters = _loc2_;
    }
