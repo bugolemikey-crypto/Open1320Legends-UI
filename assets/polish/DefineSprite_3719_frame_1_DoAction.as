@@ -44,14 +44,14 @@ function drawFinishPicker()
    finishPicker.removeMovieClip();
    selectedFinish = 0;
    classes.CarConstruction.finishOverride = 0;
-   var _loc8_ = Math.ceil(paintSwatchArray.length / columns);
-   if(_loc8_ < 1)
-   {
-      _loc8_ = 1;
-   }
-   finishPicker = this.createEmptyMovieClip("finishPicker",this.getNextHighestDepth());
-   finishPicker._x = paintSwatchContainer._x;
-   finishPicker._y = paintSwatchContainer._y + _loc8_ * yIndent + 6;
+   // Sits on the price-description row, to the right of the price text, which is
+   // the one band in this shop guaranteed to be clear. Do NOT place it below the
+   // swatch grid: the swatch art is far taller than its yIndent row pitch and
+   // the rows stagger, so any position derived from row count lands inside the
+   // grid and gets buried. Explicit high depth for the same reason.
+   finishPicker = this.createEmptyMovieClip("finishPicker",20000);
+   finishPicker._x = paintSwatchContainer._x + 150;
+   finishPicker._y = paintSwatchContainer._y - 24;
    finishBtnArray = new Array();
    var _loc7_ = new Array("GLOSS","MATTE","SATIN","CANDY");
    var _loc5_ = new TextFormat();
@@ -67,12 +67,7 @@ function drawFinishPicker()
       _loc3_ = finishPicker.createEmptyMovieClip("fin" + _loc2_,_loc2_ + 1);
       _loc3_._x = _loc2_ * 62;
       _loc3_.finishID = _loc2_;
-      _loc3_.beginFill(2500141,100);
-      _loc3_.lineTo(58,0);
-      _loc3_.lineTo(58,17);
-      _loc3_.lineTo(0,17);
-      _loc3_.endFill();
-      _loc4_ = _loc3_.createTextField("fld",1,0,2,58,15);
+      _loc4_ = _loc3_.createTextField("fld",1,0,3,58,16);
       _loc4_.selectable = false;
       _loc4_.setNewTextFormat(_loc5_);
       _loc4_.text = _loc7_[_loc2_];
@@ -96,18 +91,26 @@ function setFinish(fin)
 function highlightFinish()
 {
    var _loc1_ = 0;
+   var _loc2_;
    while(_loc1_ < finishBtnArray.length)
    {
+      _loc2_ = finishBtnArray[_loc1_];
+      _loc2_.clear();
       if(_loc1_ == selectedFinish)
       {
-         finishBtnArray[_loc1_]._alpha = 100;
-         finishBtnArray[_loc1_].fld.textColor = 16777215;
+         _loc2_.beginFill(14827572,100);
       }
       else
       {
-         finishBtnArray[_loc1_]._alpha = 55;
-         finishBtnArray[_loc1_].fld.textColor = 10066329;
+         _loc2_.beginFill(3355443,100);
       }
+      _loc2_.moveTo(0,0);
+      _loc2_.lineTo(58,0);
+      _loc2_.lineTo(58,18);
+      _loc2_.lineTo(0,18);
+      _loc2_.lineTo(0,0);
+      _loc2_.endFill();
+      _loc2_.fld.textColor = 16777215;
       _loc1_ = _loc1_ + 1;
    }
 }
@@ -125,7 +128,8 @@ function drawMenu()
    var _loc3_;
    if(isWholeCar)
    {
-      paintSwatchContainer._x = priceDescription._x = finishPicker._x = 200;
+      paintSwatchContainer._x = priceDescription._x = 200;
+      finishPicker._x = 350;
       _loc5_ = _global.paintCategoriesXML.firstChild;
       _loc4_ = 0;
       while(_loc4_ < _loc5_.childNodes.length)
@@ -141,7 +145,8 @@ function drawMenu()
    }
    else
    {
-      paintSwatchContainer._x = priceDescription._x = finishPicker._x = 350;
+      paintSwatchContainer._x = priceDescription._x = 350;
+      finishPicker._x = 500;
       _loc5_ = _global.paintCategoriesXML.firstChild;
       tfNA = new TextFormat();
       tfNA.color = 6710886;
