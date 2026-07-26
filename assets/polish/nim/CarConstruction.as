@@ -430,12 +430,9 @@ class classes.CarConstruction
    function setCar(cs, racing, scale)
    {
       this.tireFrac = cs.tireScale / 100;
-      // The rear axle sizes itself. Falls back to the front when a spec carries
-      // no rear (anything built without applyCarXML), which is exactly what the
-      // two hard-coded copies here used to do unconditionally.
-      this.tireFracR = !cs.tireScaleR ? this.tireFrac : cs.tireScaleR / 100;
+      this.tireFracR = this.tireFrac;
       this.wheelFrac = cs.wheelScale / 100;
-      this.wheelFracR = !cs.wheelScaleR ? this.wheelFrac : cs.wheelScaleR / 100;
+      this.wheelFracR = this.wheelFrac;
       var _loc2_ = 0;
       while(_loc2_ < this.optionalPartsArr.length)
       {
@@ -443,8 +440,6 @@ class classes.CarConstruction
          _loc2_ = _loc2_ + 1;
       }
       var _loc4_;
-      var _loc6_;
-      var _loc7_;
       for(var _loc5_ in cs)
       {
          if(typeof cs[_loc5_] == "number")
@@ -460,24 +455,14 @@ class classes.CarConstruction
       this.initBase();
       this.init();
       this.setColors(cs);
-      // The body is one clip and cannot tilt, so it rides the mean of the two
-      // axles. Identical to the old front-only figure whenever the axles match,
-      // and on a staggered set it keeps the shell centred between them instead
-      // of hanging at front height with the rears buried in the arches. Decals
-      // read this same coreYAdj off the instance, so they follow the body.
-      this.coreYAdj = Math.ceil(cs.rideHeight - (1 - (this.tireFrac + this.tireFracR) / 2) * 75);
+      this.coreYAdj = Math.ceil(cs.rideHeight - (1 - this.tireFrac) * 75);
       for(_loc5_ in classes.CarConstruction.corePartsArr)
       {
          this.__MC[classes.CarConstruction.corePartsArr[_loc5_]]._y = this.__MC[classes.CarConstruction.corePartsArr[_loc5_]].baseY - this.coreYAdj;
       }
       for(_loc5_ in this.wheelPartsArr)
       {
-         _loc6_ = this.wheelPartsArr[_loc5_];
-         // Each axle sits on its own frac. tireBack is the far rear tyre - the
-         // stock setTireRGroup already scales it off tireFracR, so it belongs
-         // with the rear group here too.
-         _loc7_ = _loc6_ != "tireR" && _loc6_ != "wheelR" && _loc6_ != "tireBack" ? this.tireFrac : this.tireFracR;
-         this.__MC[_loc6_]._y = this.__MC[_loc6_].baseY + Math.ceil((1 - _loc7_) * 75);
+         this.__MC[this.wheelPartsArr[_loc5_]]._y = this.__MC[this.wheelPartsArr[_loc5_]].baseY + Math.ceil((1 - this.tireFrac) * 75);
       }
       if(this.backView)
       {

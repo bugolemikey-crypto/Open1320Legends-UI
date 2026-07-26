@@ -14,17 +14,6 @@ class classes.CarSpecs
    var wheelRID;
    var wheelScale;
    var wheelSize;
-   // Rear axle sizing. The renderer has carried tireFracR/wheelFracR and a
-   // separate setTireRGroup since it shipped; only the data layer collapsed the
-   // two axles onto one number. These carry the rear half back through, so a
-   // drag setup - skinnies up front, tall meats out back - is expressible.
-   var tireScaleR;
-   var tireScaleFactorR;
-   var wheelScaleR;
-   var wheelSizeR;
-   var acctCarID;
-   // Account car id -> stagger preset (1 mild, 2 drag). Session only.
-   static var staggerMap = new Object();
    function CarSpecs(pClr)
    {
       if(pClr)
@@ -47,26 +36,6 @@ class classes.CarSpecs
       this.tireScaleFactor = 1.1;
       this.wheelScale = 78;
       this.wheelSize = 16;
-      this.tireScaleR = 90;
-      this.tireScaleFactorR = 1.1;
-      this.wheelScaleR = 78;
-      this.wheelSizeR = 16;
-   }
-   // Read one axle out of a part's ps string. Stock ps is a bare number, so
-   // index 1 falls through to index 0 and both axles come out identical - every
-   // existing car renders byte-for-byte as before. "15|17" (or "15/17") stages
-   // the rear on its own value. ps is catalog data on the part itself (the
-   // tyre/wheel shop copies it straight off partXML), so a staggered set is
-   // just another purchasable part - no new category, schema or picker.
-   static function axleSpec(ps, index)
-   {
-      var _loc1_ = String(ps).split("/").join("|").split("|");
-      var _loc2_ = _loc1_[index];
-      if(_loc2_ == undefined || _loc2_ == "")
-      {
-         _loc2_ = _loc1_[0];
-      }
-      return Number(_loc2_);
    }
    function modSpec(specName, val)
    {
@@ -87,7 +56,6 @@ class classes.CarSpecs
       var _loc4_;
       var _loc2_;
       var _loc9_;
-      var partPS;
       if(carXML != undefined)
       {
          this.modSpec("globalClr",Number("0x" + carXML.firstChild.attributes.cc));
@@ -103,6 +71,7 @@ class classes.CarSpecs
                continue;
             }
             _loc4_ = classes.CarSpecs.getName(Number(carXML.firstChild.childNodes[_loc2_].attributes.ci));
+            trace("paramName: " + _loc4_);
             if(_loc4_)
             {
                this.modSpec(_loc4_ + "ID",Number(carXML.firstChild.childNodes[_loc2_].attributes.di));
@@ -155,22 +124,15 @@ class classes.CarSpecs
             switch(Number(carXML.firstChild.childNodes[_loc2_].attributes.ci))
             {
                case 13:
-                  partPS = carXML.firstChild.childNodes[_loc2_].attributes.ps;
-                  if(partPS.length)
+                  if(carXML.firstChild.childNodes[_loc2_].attributes.ps.length)
                   {
-                     this.tireScaleFactor = 1 + classes.CarSpecs.axleSpec(partPS,0) / 100;
-                     this.tireScaleFactorR = 1 + classes.CarSpecs.axleSpec(partPS,1) / 100;
+                     this.tireScaleFactor = 1 + Number(carXML.firstChild.childNodes[_loc2_].attributes.ps) / 100;
                   }
                   break;
                case 14:
-                  partPS = carXML.firstChild.childNodes[_loc2_].attributes.ps;
-                  // Gate on the front axle, not Number(ps): a staggered "15|17"
-                  // is NaN to Number() and would have silently dropped the whole
-                  // wheel size back to the 16" default.
-                  if(classes.CarSpecs.axleSpec(partPS,0))
+                  if(Number(carXML.firstChild.childNodes[_loc2_].attributes.ps))
                   {
-                     this.wheelSize = Math.max(14,Math.min(20,classes.CarSpecs.axleSpec(partPS,0)));
-                     this.wheelSizeR = Math.max(14,Math.min(20,classes.CarSpecs.axleSpec(partPS,1)));
+                     this.wheelSize = Math.max(14,Math.min(20,Number(carXML.firstChild.childNodes[_loc2_].attributes.ps)));
                   }
                   break;
                case 114:
@@ -178,29 +140,14 @@ class classes.CarSpecs
             }
          }
          this.decalArr.sortOn("order");
+         trace("sorting... ");
          this.setWheelAndTireScales();
       }
    }
    function setWheelAndTireScales()
    {
-      // Preview override, so a staggered set can be seen before the catalog
-      // carries one. Keyed by account car id and session scoped exactly like the
-      // paint finishes - the server never sees it and nothing is persisted. Off
-      // is a true no-op, so a genuinely staggered `ps` passes through untouched.
-      // Inlined rather than given its own method purely to fit the byte budget.
-      if(classes.CarSpecs.staggerMap[this.acctCarID])
-      {
-         // Drop the front below the rear and push the rear tyre out - the same
-         // shape a "15|17" catalog ps produces. The rear keeps whatever size the
-         // part actually granted, so this only ever takes the front down.
-         this.wheelSizeR = this.wheelSize;
-         this.wheelSize = Math.max(14,this.wheelSizeR - 4);
-         this.tireScaleFactorR = 1.45;
-      }
       this.wheelScale = 70 + (this.wheelSize - 14) * 24 / 6;
       this.tireScale = Math.min(100,this.wheelScale * this.tireScaleFactor);
-      this.wheelScaleR = 70 + (this.wheelSizeR - 14) * 24 / 6;
-      this.tireScaleR = Math.min(100,this.wheelScaleR * this.tireScaleFactorR);
    }
    function toString()
    {
