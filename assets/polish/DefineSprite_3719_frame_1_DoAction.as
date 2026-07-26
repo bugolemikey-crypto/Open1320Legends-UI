@@ -19,6 +19,11 @@ function drawSwatches()
    _loc5_ = 0;
    var _loc4_;
    var _loc3_;
+   // Member-only colours arrive flagged mc='1'. The server has always REJECTED
+   // them for non-members (local-account-store: "membership-required"), but the
+   // shop drew them exactly like any other swatch, so the only feedback was a
+   // failed purchase. Dim them and leave them unclickable instead.
+   var _loc7_ = Number(classes.GlobalData.attr.mb) > 0;
    while(_loc5_ < _loc6_.childNodes.length)
    {
       if(_loc6_.childNodes[_loc5_].attributes.l == locationID)
@@ -28,10 +33,17 @@ function drawSwatches()
          _loc3_._x = Math.floor(_loc4_ / columns) * xIndent + _loc4_ % columns * xSpacing;
          _loc3_._y = Math.floor(_loc4_ / columns) * yIndent;
          _loc3_.HexColor = _loc6_.childNodes[_loc5_].attributes.c;
-         _loc3_.swatchColorMC.onRelease = function()
+         if(Number(_loc6_.childNodes[_loc5_].attributes.mc) == 1 && !_loc7_)
          {
-            this._parent._parent._parent.addToCart(this._parent.hexColor);
-         };
+            _loc3_._alpha = 32;
+         }
+         else
+         {
+            _loc3_.swatchColorMC.onRelease = function()
+            {
+               this._parent._parent._parent.addToCart(this._parent.hexColor);
+            };
+         }
          paintSwatchArray.push(_loc3_);
       }
       _loc5_ = _loc5_ + 1;
@@ -61,10 +73,10 @@ function drawFinishPicker()
    finishPicker._x = btnSpecific._x;
    finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   // Index 6 is the rim camo test, not a finish. It rides this loop,
+   // Index 6 is the underglow colour cycler, not a finish. It rides this loop,
    // highlightFinish and setFinish's redraw rather than bringing its own
    // attachMovie/label/redraw trio - a second set does not fit the budget.
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Rim camo","Underglow");
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Underglow");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)
@@ -81,22 +93,15 @@ function drawFinishPicker()
          }
          else
          {
-            if(this.finishID == 6)
+            // Cycle the colour rather than toggling, so the row doubles as the
+            // colour picker without spending a second row of a menu that is
+            // already taller than its panel.
+            glowStep = !glowStep ? 1 : glowStep + 1;
+            if(glowStep >= classes.CarConstruction.glowColors.length)
             {
-               classes.CarConstruction.camoMap[accountCarID] = !classes.CarConstruction.camoMap[accountCarID];
+               glowStep = 0;
             }
-            else
-            {
-               // Cycle the colour rather than toggling, so the row doubles as the
-               // colour picker without spending a second row of a menu that is
-               // already taller than its panel.
-               glowStep = !glowStep ? 1 : glowStep + 1;
-               if(glowStep >= classes.CarConstruction.glowColors.length)
-               {
-                  glowStep = 0;
-               }
-               classes.CarConstruction.glowMap[accountCarID] = classes.CarConstruction.glowColors[glowStep];
-            }
+            classes.CarConstruction.glowMap[accountCarID] = classes.CarConstruction.glowColors[glowStep];
             setFinish(selectedFinish);
          }
       };
@@ -120,8 +125,8 @@ function highlightFinish()
    var _loc1_ = 0;
    while(_loc1_ < finishBtnArray.length)
    {
-      // selectedFinish is only ever 0-5, so row 6 lights from the camo flag.
-      if(_loc1_ == selectedFinish || _loc1_ == 6 && classes.CarConstruction.camoMap[accountCarID] || _loc1_ == 7 && classes.CarConstruction.glowMap[accountCarID])
+      // selectedFinish is only ever 0-5, so row 6 lights from the glow colour.
+      if(_loc1_ == selectedFinish || _loc1_ == 6 && classes.CarConstruction.glowMap[accountCarID])
       {
          finishBtnArray[_loc1_].fld.setTextFormat(tfInit);
       }
@@ -134,6 +139,14 @@ function highlightFinish()
 }
 function drawMenu()
 {
+   // The category list has always been taller than the plate behind it: rows run
+   // from y=127 at a 14px pitch and the panel ends near y=344, so it held about
+   // 16 of them. Fender Effect, Door Effect and Convertible Top were already
+   // falling off the bottom before Wheels was added, and Wheels - being last -
+   // landed clear outside and could not be clicked at all. 11px fits all 20
+   // inside the plate. Set here rather than in DoAction_2, which carries the
+   // original constants but is a duplicate frame tag FFDec cannot -replace.
+   paintMenuYSpacing = 11;
    var _loc4_ = 0;
    while(_loc4_ < paintMenuArray.length)
    {

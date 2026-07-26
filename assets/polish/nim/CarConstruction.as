@@ -17,13 +17,9 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
-   // Account car id -> rim camo on. Session only, garage/thumbnail views only:
-   // the track view's wheels take a plain tint, not the baked overlay the
-   // pattern lives in. A legibility test, not a shipped feature.
-   static var camoMap = new Object();
    // Account car id -> underglow colour (absent/0 = off). Session only.
    static var glowMap = new Object();
-   static var glowColors = new Array(0,16719904,2154751,4259136,12599295,16755370);
+   static var glowColors = new Array(0,16719904,16750848,16772864,4259136,3407718,2154751,255,8388863,12599295,16711935,16744383,16777215);
    static var finishSO;
    function CarConstruction(mc, pBackView)
    {
@@ -686,6 +682,18 @@ class classes.CarConstruction
       var _loc3_ = new flash.geom.Matrix();
       _loc3_.translate(- _loc2_.xMin,- _loc2_.yMin);
       _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
+      // Put the shadow back UNDER the glow. Colouring the silhouette alone
+      // replaced the shadow rather than adding to it, so a lit car had no dark
+      // contact patch and floated - obvious on a light-coloured body, and the
+      // main reason it read as fake from behind, where the pool is widest.
+      // Drawing the original black back over at partial alpha darkens hardest
+      // where the shadow was opaque (directly under the car) and barely touches
+      // the faint outer edge, so the colour survives as a spill around a dark
+      // core. That is how the Beast's own art is drawn.
+      // 0.62 was far too heavy - it buried the colour and the glow came out dark
+      // and dull. 0.28 is enough to put a contact patch back under the car
+      // without eating the light.
+      _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,0.28,0,0,0,0));
       var _loc9_ = _loc7_.createEmptyMovieClip("glow",_loc7_.getNextHighestDepth());
       _loc9_.attachBitmap(_loc8_,1,"auto",true);
       _loc9_._x = _loc2_.xMin;
@@ -748,42 +756,6 @@ class classes.CarConstruction
       // rather than flat paint. Generated at an eighth scale and drawn back up
       // with smoothing: noise at pixel scale is television static, and a rim is
       // only ~60px on screen, so the blobs have to be coarse to read at all.
-      if(classes.CarConstruction.camoMap[carID])
-      {
-         // Keep the rim's alpha BEFORE the camo pass. Drawing an opaque bitmap
-         // with "multiply" does NOT leave transparent pixels alone - it fills
-         // them - so the first version painted an opaque square of blobs across
-         // the body and the background around each wheel. Blend semantics cannot
-         // be trusted to mask here; copyPixels with an explicit alpha source can.
-         var _loc11_ = _loc5_.clone();
-         // Three tones off a PRISTINE noise source, not two thresholds chained
-         // over the same buffer. Each threshold reads `_loc13_` and writes into
-         // `_loc9_` with copySource false, so unmatched pixels keep the mid tone
-         // - chaining in place would have re-thresholded already-written values.
-         // Blob size is the whole ballgame. At /10 the patches were ~4px on a rim
-         // that renders around 60px, so they averaged into a uniform wash and the
-         // camo read as nothing. /24 gives roughly 10px patches - a handful
-         // across the wheel, which is what actual camo looks like at any scale.
-         var _loc13_ = new flash.display.BitmapData(Math.ceil(_loc7_ / 24),Math.ceil(_loc8_ / 24),false,16777215);
-         _loc13_.noise(4711,0,255,7,true);
-         var _loc9_ = new flash.display.BitmapData(_loc13_.width,_loc13_.height,false,12500670);
-         _loc9_.threshold(_loc13_,_loc13_.rectangle,new flash.geom.Point(0,0),">",4289374890,4294967295,4294967295,false);
-         _loc9_.threshold(_loc13_,_loc13_.rectangle,new flash.geom.Point(0,0),"<",4285427310,4286414205,4294967295,false);
-         var _loc10_ = new flash.geom.Matrix();
-         _loc10_.scale(24,24);
-         // smooth FALSE. Camo has hard edges; smoothing blurred the tones into
-         // each other and the whole thing read as extra shading on the spokes
-         // rather than as a pattern.
-         _loc5_.draw(_loc9_,_loc10_,new flash.geom.ColorTransform(),"multiply",null,false);
-         _loc13_.dispose();
-         // Re-clamp to the rim silhouette: camo RGB, original alpha.
-         var _loc12_ = new flash.display.BitmapData(_loc7_,_loc8_,true,0);
-         _loc12_.copyPixels(_loc5_,_loc5_.rectangle,new flash.geom.Point(0,0),_loc11_,new flash.geom.Point(0,0),false);
-         _loc9_.dispose();
-         _loc11_.dispose();
-         _loc5_.dispose();
-         _loc5_ = _loc12_;
-      }
       var _loc3_ = target.createEmptyMovieClip("tint",target.getNextHighestDepth());
       _loc3_.attachBitmap(_loc5_,1,"auto",true);
       _loc3_._x = _loc6_.xMin;
