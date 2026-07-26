@@ -19,6 +19,11 @@ class classes.CarConstruction
    static var finishMap = new Object();
    // Account car id -> underglow colour (absent/0 = off). Session only.
    static var glowMap = new Object();
+   // Per-car underglow art, keyed "<modelID>f" / "<modelID>b" and loaded from the
+   // car's own package directory. One procedural transform of the shadow cannot
+   // fit 153 different silhouettes - the Beast looks right precisely because its
+   // glow was drawn for it. Cached on _root so it outlives the car being redrawn.
+   static var glowArt = new Object();
    static var glowColors = new Array(0,16719904,16750848,16772864,4259136,3407718,2154751,255,8388863,12599295,16711935,16744383,16777215);
    static var finishSO;
    function CarConstruction(mc, pBackView)
@@ -616,7 +621,7 @@ class classes.CarConstruction
       // the tyres only reach their final position and scale in the setTire/
       // drawTire calls above - running this from setColors used their unplaced
       // defaults and the holes landed in the wrong place.
-      this.setUnderglow(cs.acctCarID);
+      this.setUnderglow(cs.acctCarID,cs.carModelID);
    }
    function setColors(cs)
    {
@@ -682,15 +687,61 @@ class classes.CarConstruction
    // Baked for the same reason as the wheel tint: snapshotCar's very first call
    // is addToSnapshot(carLoadin.shadow), which passes an identity ColorTransform
    // and would discard a transform set on the clip.
-   function tyreBottom(tyre)
+   // Clears the glow around one tyre's contact patch with a soft ELLIPSE.
+   //
+   // Rectangles were visible. A 13px blur cannot hide a 60px-wide square, so the
+   // cuts showed as boxy steps beside the front wheel and a blocky edge at the
+   // rear. An ellipse centred on the contact point has no corners to give itself
+   // away, and reaching a little above the contact line costs nothing because the
+   // tyre is drawn over that area anyway.
+   static function glowArtFor(key)
    {
-      if(!tyre)
+      if(classes.CarConstruction.glowArt[key] != undefined)
       {
-         return 0;
+         return classes.CarConstruction.glowArt[key];
       }
-      return tyre.getBounds(this.__MC).yMax;
+      // false means "asked for, not here yet" - set BEFORE the load so a car that
+      // redraws constantly does not queue a fresh request on every single draw.
+      classes.CarConstruction.glowArt[key] = false;
+      var _loc1_ = _root.createEmptyMovieClip("glowArt_" + key,_root.getNextHighestDepth());
+      _loc1_._visible = false;
+      var _loc3_ = new Object();
+      _loc3_.onLoadInit = function(mc)
+      {
+         classes.CarConstruction.glowArt[key] = mc;
+      };
+      var _loc2_ = new MovieClipLoader();
+      _loc2_.addListener(_loc3_);
+      _loc2_.loadClip("cache/car/packages/" + key + "/glow.swf",_loc1_);
+      return false;
    }
-   function setUnderglow(carID)
+   function clipUnderTyre(bmp, tyre, shadowClip, bounds)
+   {
+      if(!tyre || !bmp)
+      {
+         return undefined;
+      }
+      var _loc2_ = tyre.getBounds(this.__MC);
+      var _loc7_ = (_loc2_.xMin + _loc2_.xMax) / 2 - shadowClip._x - bounds.xMin + 24;
+      var _loc8_ = _loc2_.yMax - shadowClip._y - bounds.yMin + 24;
+      var _loc5_ = (_loc2_.xMax - _loc2_.xMin) * 0.6;
+      var _loc6_ = 26;
+      if(_loc5_ < 2)
+      {
+         return undefined;
+      }
+      var _loc4_ = this.__MC.createEmptyMovieClip("glowCut",this.__MC.getNextHighestDepth());
+      _loc4_.beginFill(0,100);
+      _loc4_.moveTo(_loc7_ + _loc5_,_loc8_);
+      _loc4_.curveTo(_loc7_ + _loc5_,_loc8_ + _loc6_,_loc7_,_loc8_ + _loc6_);
+      _loc4_.curveTo(_loc7_ - _loc5_,_loc8_ + _loc6_,_loc7_ - _loc5_,_loc8_);
+      _loc4_.curveTo(_loc7_ - _loc5_,_loc8_ - _loc6_,_loc7_,_loc8_ - _loc6_);
+      _loc4_.curveTo(_loc7_ + _loc5_,_loc8_ - _loc6_,_loc7_ + _loc5_,_loc8_);
+      _loc4_.endFill();
+      bmp.draw(_loc4_,new flash.geom.Matrix(),new flash.geom.ColorTransform(),"erase");
+      _loc4_.removeMovieClip();
+   }
+   function setUnderglow(carID, modelID)
    {
       var _loc7_ = this.__MC.shadow;
       if(!_loc7_)
@@ -728,64 +779,75 @@ class classes.CarConstruction
       // behind and below the car instead of light coming from under it. Scaling
       // to 70% x 45% about the shadow's own centre, then lifting it, leaves a
       // core that hugs the sills and rear valance the way the Beast's art does.
-      var _loc10_ = new flash.geom.Matrix();
-      _loc10_.translate(- _loc2_.xMin,- _loc2_.yMin);
-      // Barely shrunk, and NOT lifted. Two earlier attempts (0.7 x 0.45, then
-      // 0.86 x 0.64 with a lift) pulled the glow inside the car's own footprint.
-      // That still showed in the rear 3/4, where the shadow extends out behind
-      // the bumper, but in the front 3/4 the body covers nearly the whole shadow
-      // and the glow disappeared completely - it was under the car, not around
-      // it. The blur and the shadow pass are what stop it reading as a flat
-      // puddle; the size does not need to.
-      _loc10_.scale(0.97,0.88);
-      _loc10_.translate(24 + (_loc4_ - 48) * 0.015,24 + (_loc5_ - 48) * 0.07);
-      _loc8_.draw(_loc7_,_loc10_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
-      // Put the shadow back UNDER the glow. Colouring the silhouette alone
-      // replaced the shadow rather than adding to it, so a lit car had no dark
-      // contact patch and floated - obvious on a light-coloured body, and the
-      // main reason it read as fake from behind, where the pool is widest.
-      // Drawing the original black back over at partial alpha darkens hardest
-      // where the shadow was opaque (directly under the car) and barely touches
-      // the faint outer edge, so the colour survives as a spill around a dark
-      // core. That is how the Beast's own art is drawn.
-      // Blur the colour BEFORE the shadow goes on. Underglow is light thrown onto
-      // tarmac, and a hard-edged silhouette at full saturation reads as a painted
-      // slab instead - which is exactly what it looked like. Blurring only the
-      // coloured layer keeps the spill soft while the shadow that follows stays
-      // crisp, so the car still looks planted rather than smeared.
-      // Clip the glow at the TYRE CONTACT LINE, not at the shadow's edge.
-      //
-      // Previous attempt cleared the 24px padding below the shadow, which does
-      // nothing useful: the shadow is a ground ellipse that spreads well past the
-      // wheels, so its bottom edge sits far below where the tyres actually touch.
-      // Every pixel of glow between the contact line and the shadow's edge
-      // survived - which is the band that reads as the car hovering.
-      //
-      // getBounds against __MC gives each tyre's bottom in car space; the lowest
-      // of the two is the near-side contact line in a three-quarter view.
-      //
-      // Done BEFORE the blur, deliberately. Clipping afterwards left a razor
-      // straight horizontal edge across the glow that read as a graphic rather
-      // than light. Cutting first lets the blur feather the edge, which leaves a
-      // few pixels of soft spill below the contact line - what light actually
-      // does, and nothing like the solid band that made the car look airborne.
-      var _loc11_ = this.tyreBottom(this.__MC.tireF);
-      var _loc12_ = this.tyreBottom(this.__MC.tireR);
-      if(_loc12_ > _loc11_)
+      var _loc12_ = classes.CarConstruction.glowArtFor(modelID + (!this.backView ? "f" : "b"));
+      if(_loc12_)
       {
-         _loc11_ = _loc12_;
+         // Authored art wins outright: no ring, no blur, no tyre clips. The whole
+         // point of per-car art is that someone has already put the light exactly
+         // where it belongs for this shape, and re-deriving it would undo that.
+         // Multiply tints greyscale art to the chosen colour.
+         _loc8_.draw(_loc12_,_loc3_,new flash.geom.ColorTransform((_loc6_ >> 16 & 255) / 255,(_loc6_ >> 8 & 255) / 255,(_loc6_ & 255) / 255,1,0,0,0,0));
       }
-      if(_loc11_)
+      else
       {
-         var _loc13_ = Math.floor(_loc11_ - _loc7_._y - _loc2_.yMin + 24);
-         if(_loc13_ > 0 && _loc13_ < _loc5_)
-         {
-            _loc8_.fillRect(new flash.geom.Rectangle(0,_loc13_,_loc4_,_loc5_ - _loc13_),0);
-         }
+         // No art for this car yet - fall back to deriving it from the shadow, so
+         // every car still glows while the art is authored incrementally.
+         var _loc10_ = new flash.geom.Matrix();
+         _loc10_.translate(- _loc2_.xMin,- _loc2_.yMin);
+         // Barely shrunk, and NOT lifted. Two earlier attempts (0.7 x 0.45, then
+         // 0.86 x 0.64 with a lift) pulled the glow inside the car's own footprint.
+         // That still showed in the rear 3/4, where the shadow extends out behind
+         // the bumper, but in the front 3/4 the body covers nearly the whole shadow
+         // and the glow disappeared completely - it was under the car, not around
+         // it. The blur and the shadow pass are what stop it reading as a flat
+         // puddle; the size does not need to.
+         _loc10_.scale(0.97,0.88);
+         _loc10_.translate(24 + (_loc4_ - 48) * 0.015,24 + (_loc5_ - 48) * 0.07);
+         _loc8_.draw(_loc7_,_loc10_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
+         // Twice. One pass plus a 13px blur spreads the alpha thin and the light
+         // came out washed out at the edges; doubling it up before the blur keeps
+         // the spill reading as something actually emitting.
+         _loc8_.draw(_loc7_,_loc10_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
+         // Hollow the middle out so what is left is a BAND around the perimeter -
+         // a neon tube is brightest at the boundary and dim between, where a filled
+         // shape reads as a painted pool however carefully it is blurred. The inner
+         // cut is the same shadow inset to 82% and kept concentric with the outer,
+         // so the band follows the car's own outline rather than a generic ring.
+         // The blur below then bleeds it inward and outward into a tube.
+         var _loc11_ = new flash.geom.Matrix();
+         _loc11_.translate(- _loc2_.xMin,- _loc2_.yMin);
+         _loc11_.scale(0.7954,0.7216);
+         _loc11_.translate(24 + (_loc4_ - 48) * 0.1023,24 + (_loc5_ - 48) * 0.1492);
+         _loc8_.draw(_loc7_,_loc11_,new flash.geom.ColorTransform(),"erase");
+         // Put the shadow back UNDER the glow. Colouring the silhouette alone
+         // replaced the shadow rather than adding to it, so a lit car had no dark
+         // contact patch and floated - obvious on a light-coloured body, and the
+         // main reason it read as fake from behind, where the pool is widest.
+         // Drawing the original black back over at partial alpha darkens hardest
+         // where the shadow was opaque (directly under the car) and barely touches
+         // the faint outer edge, so the colour survives as a spill around a dark
+         // core. That is how the Beast's own art is drawn.
+         // Blur the colour BEFORE the shadow goes on. Underglow is light thrown onto
+         // tarmac, and a hard-edged silhouette at full saturation reads as a painted
+         // slab instead - which is exactly what it looked like. Blurring only the
+         // coloured layer keeps the spill soft while the shadow that follows stays
+         // crisp, so the car still looks planted rather than smeared.
+         // Clip under EACH tyre separately, in its own x-span.
+         //
+         // A single horizontal cut at the lowest tyre was wrong twice over: in a
+         // three-quarter view the wheels do not share a screen-space ground line,
+         // so one line left glow under the higher (far) wheels while slicing
+         // through glow that legitimately belongs at the corners where the car sits
+         // above that line. Per-tyre rectangles follow the actual contact points and
+         // leave the spill between the wheels alone, which is where light on the
+         // road should be.
+         //
+         // Still before the blur, so every cut gets feathered.
+         this.clipUnderTyre(_loc8_,this.__MC.tireF,_loc7_,_loc2_);
+         this.clipUnderTyre(_loc8_,this.__MC.tireR,_loc7_,_loc2_);
+         this.clipUnderTyre(_loc8_,this.__MC.tireBack,_loc7_,_loc2_);
+         _loc8_.applyFilter(_loc8_,_loc8_.rectangle,new flash.geom.Point(0,0),new flash.filters.BlurFilter(13,13,2));
       }
-      // The dark shadow still goes over the top afterwards, so the tyres keep a
-      // proper contact shadow - it is only the coloured light that is removed.
-      _loc8_.applyFilter(_loc8_,_loc8_.rectangle,new flash.geom.Point(0,0),new flash.filters.BlurFilter(13,13,2));
       // Cut the tyres out of the glow. Light spilling from under the car should
       // not appear beneath the contact patch - it reads as the wheels hovering
       // rather than touching the ground. Erasing the tyre clip itself rather
@@ -801,7 +863,7 @@ class classes.CarConstruction
       // 0.62 was far too heavy - it buried the colour and the glow came out dark
       // and dull. 0.28 is enough to put a contact patch back under the car
       // without eating the light.
-      _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,0.28,0,0,0,0));
+      _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,0.2,0,0,0,0));
       var _loc9_ = _loc7_.createEmptyMovieClip("glow",_loc7_.getNextHighestDepth());
       _loc9_.attachBitmap(_loc8_,1,"auto",true);
       // Back off by the padding added above, so the blurred spill lands where the

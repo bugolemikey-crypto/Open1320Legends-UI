@@ -60,6 +60,10 @@ class classes.CarSpecs
       {
          this.modSpec("globalClr",Number("0x" + carXML.firstChild.attributes.cc));
          this.modSpec("acctCarID",Number(carXML.firstChild.attributes.i));
+         // Car model id - the number in cache/car/packages/<id>{f,b}/. Needed to
+         // find that car's own underglow art; acctCarID identifies the player's
+         // car, this identifies which model it is.
+         this.modSpec("carModelID",Number(carXML.firstChild.attributes.ci));
          this.modSpec("plateID",carXML.firstChild.attributes.pi);
          this.modSpec("lic",carXML.firstChild.attributes.pn);
          this.decalArr = new Array();

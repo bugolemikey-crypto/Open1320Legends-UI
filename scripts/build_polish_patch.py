@@ -113,8 +113,16 @@ BUDGETED = {
     # at the bottom of that range (quality ~1-5, visibly blocky) and frees ~6.6KB
     # against the 11,662 it used to take. 6_000 is the same saving minus ~1KB and
     # looks far better; 12_200 restores the original.
-    2231: (HOME_PREPARED / "activate_panel_2231.png", 5_000),
-    2234: (HOME_PREPARED / "activate_button_2234.png", 1_900),
+    # The "Activate your Purchase" panel and its button, blanked to a 1x1
+    # transparent pixel at the user's direction. Activation was pulled from the
+    # client flow (see main-no-activation.swf), so this art is vestigial and was
+    # only ever costing payload - it had already been squeezed twice to buy room
+    # for other work. A 1x1 with zero alpha is the smallest a DefineBitsJPEG3 can
+    # be: the tag is JPEG plus a LOSSLESS zlib alpha channel, and that alpha is
+    # sized by pixel count, so shrinking the image is the only real lever.
+    # Restore by pointing these back at activate_panel_2231.png / _2234.png.
+    2231: (HOME_PREPARED / "blank_1x1.png", 400),
+    2234: (HOME_PREPARED / "blank_1x1.png", 400),
     # Home city-map background, regraded to graphite. Budgeted a touch under the
     # original 89,524-byte tag so the swap frees rather than costs bytes.
     2227: (HOME_PREPARED / "map_2227_graphite.png", 70_000),
