@@ -17,6 +17,7 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
+   static var finishSO;
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -435,6 +436,39 @@ class classes.CarConstruction
       }
       target.shad.filters = _loc2_;
    }
+   // Finishes persist LOCALLY. The server rejects an 8-character cc with "illegal
+   // action" (tried 2026-07-26), so the high byte of cc is not available and a
+   // finish can be neither stored server-side nor shown to other players.
+   //
+   // Resolved on first use rather than at startup: a failure here degrades to a
+   // plain in-memory map, whereas anything on the startup path can kill the
+   // client. `false` records "tried and failed" so a blocked store is not retried
+   // on every car draw.
+   static function finishStore()
+   {
+      if(classes.CarConstruction.finishSO == undefined)
+      {
+         var _loc1_ = SharedObject.getLocal("nittoFinish");
+         classes.CarConstruction.finishSO = !_loc1_ ? false : _loc1_;
+         if(_loc1_)
+         {
+            if(_loc1_.data.m == undefined)
+            {
+               _loc1_.data.m = new Object();
+            }
+            classes.CarConstruction.finishMap = _loc1_.data.m;
+         }
+      }
+      return classes.CarConstruction.finishMap;
+   }
+   static function setCarFinish(carID, fin)
+   {
+      classes.CarConstruction.finishStore()[carID] = fin;
+      if(classes.CarConstruction.finishSO)
+      {
+         classes.CarConstruction.finishSO.flush();
+      }
+   }
    function setFinishes(fin, carID)
    {
       // The session map wins over the high byte of cc, so switching finishes in
@@ -442,7 +476,7 @@ class classes.CarConstruction
       // prefix from the last pick. cc is the fallback and is how a finish
       // survives a reload. setPartColor masks with 0xFFFFFF, so an 8-character
       // cc can never corrupt the hue either way.
-      var _loc3_ = Number(classes.CarConstruction.finishMap[carID]);
+      var _loc3_ = Number(classes.CarConstruction.finishStore()[carID]);
       if(!_loc3_)
       {
          _loc3_ = fin;

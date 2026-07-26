@@ -42,6 +42,8 @@ MARKERS = {
         "pearlFilter",      # pearl hue travel
         "setPartFlake",     # metallic flake
         "finishMap",        # per-car finish
+        "finishStore",      # local persistence (server rejects 8-char cc)
+        "setCarFinish",     # persisting setter
     ],
     "scripts/__Packages/classes/CarSpecs.as": [
         "acctCarID",        # carries the per-car key
@@ -49,7 +51,6 @@ MARKERS = {
     "scripts/DefineSprite_3719/frame_1/DoAction.as": [
         "Gloss finish", "Matte finish", "Satin finish",
         "Candy finish", "Flake finish", "Pearl finish",
-        '"0" + selectedFinish',   # finish rides the high byte of cc
     ],
 }
 

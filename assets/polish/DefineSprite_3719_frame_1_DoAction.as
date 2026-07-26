@@ -44,7 +44,7 @@ function drawFinishPicker()
    finishPicker.removeMovieClip();
    // Show whatever finish this car already carries rather than resetting it, now
    // that the finish is keyed per car instead of being one global override.
-   selectedFinish = Number(classes.CarConstruction.finishMap[accountCarID]);
+   selectedFinish = Number(classes.CarConstruction.finishStore()[accountCarID]);
    if(!selectedFinish)
    {
       selectedFinish = 0;
@@ -82,7 +82,7 @@ function drawFinishPicker()
 function setFinish(fin)
 {
    selectedFinish = fin;
-   classes.CarConstruction.finishMap[accountCarID] = fin;
+   classes.CarConstruction.setCarFinish(accountCarID,fin);
    highlightFinish();
    classes.Drawing.clearThisCarsBmps(carHolder);
    classes.Drawing.carView(carHolder,cloneXML,100,!isBack ? "front" : "back");
@@ -243,17 +243,11 @@ function isPartCategoryInstalled(xml, pid)
 }
 function addToCart(clr)
 {
-   // Carry the finish in the high byte of cc: "05" + "C1121F". Nothing else is
-   // needed for persistence, because CarSpecs already parses cc with
-   // Number("0x" + cc) and setFinishes already reads globalClr >>> 24 - this is
-   // the channel that path was built around. Prefixing here covers the preview,
-   // the cart and checkOut in one place.
-   //
-   // Safe either way: if the server truncates cc back to six characters the high
-   // byte reads 0 and the finish falls back to the session map, which is exactly
-   // today's behaviour. setPartColor masks with 0xFFFFFF so the hue is never at
-   // risk regardless.
-   clr = "0" + selectedFinish + clr;
+   // Do NOT prefix a finish onto clr here. Tried 2026-07-26: sending an
+   // 8-character cc ("05" + "C1121F") makes the server reject the purchase with
+   // "illegal action" - it validates the colour string, so the high byte of cc is
+   // not a usable channel and finishes cannot be server-persisted or made visible
+   // to other players this way. checkOut must keep sending six characters.
    var _loc3_;
    var _loc5_;
    var _loc1_;
