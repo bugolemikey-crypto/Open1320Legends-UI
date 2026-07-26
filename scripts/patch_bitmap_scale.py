@@ -146,6 +146,74 @@ def scale_shape_fills(data: bytearray, body_start: int, length: int,
     return touched
 
 
+def set_shape_scale(path: Path, shape_id: int, bitmap_id: int, pixels_per_bitmap: float) -> float:
+    """Force one shape's bitmap fill to a given twips-per-bitmap-pixel scale.
+
+    `retune` only accepts a fill still sitting at the original 20.0, so it can
+    be run repeatedly without compounding. This is the unconditional form, for
+    art authored at a non-integer multiple: the login background is drawn at
+    1.5x, which is 20/1.5 twips per pixel and cannot be reached by halving.
+
+    The value is written into the bit width already on disk, so the tag - and
+    the file - keep their length.
+    """
+    data = bytearray(path.read_bytes())
+    original_length = len(data)
+    target = round(pixels_per_bitmap * FIXED_ONE)
+    for code, body_start, length in iter_tags(bytes(data)):
+        if code not in DEFINE_SHAPE_TAGS or length < 2:
+            continue
+        body = memoryview(data)[body_start:body_start + length]
+        (found,) = struct.unpack_from("<H", body, 0)
+        if found != shape_id:
+            continue
+        reader = BitReader(body, 2)
+        nbits = reader.read(5)
+        for _ in range(4):
+            reader.read_signed(nbits)
+        reader.align()
+        pos = reader.byte
+        count = body[pos]
+        pos += 1
+        if count == 0xFF:
+            (count,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+        for _ in range(count):
+            fill_type = body[pos]
+            pos += 1
+            if fill_type == 0x00:
+                pos += 4 if code in (32, 83) else 3
+                continue
+            if fill_type not in (0x40, 0x41, 0x42, 0x43):
+                break
+            (found_bitmap,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+            matrix = BitReader(body, pos)
+            if matrix.read(1):
+                scale_bits = matrix.read(5)
+                scale_offset = matrix.offset
+                previous = matrix.read_signed(scale_bits)
+                matrix.read_signed(scale_bits)
+                if found_bitmap == bitmap_id:
+                    absolute = body_start * 8 + scale_offset
+                    write_bits(data, absolute, scale_bits, target)
+                    write_bits(data, absolute + scale_bits, scale_bits, target)
+                    if len(data) != original_length:
+                        raise RuntimeError("scale patch changed the file length")
+                    path.write_bytes(bytes(data))
+                    return previous / FIXED_ONE
+            if matrix.read(1):
+                skew_bits = matrix.read(5)
+                matrix.read_signed(skew_bits)
+                matrix.read_signed(skew_bits)
+            translate_bits = matrix.read(5)
+            matrix.read_signed(translate_bits)
+            matrix.read_signed(translate_bits)
+            matrix.align()
+            pos = matrix.byte
+    raise RuntimeError(f"shape {shape_id} has no bitmap fill for {bitmap_id}")
+
+
 def retune(path: Path, divisor: int, shapes: dict[int, int] | None = None) -> list[tuple[int, int]]:
     shapes = shapes or SHAPE_BITMAPS
     data = bytearray(path.read_bytes())

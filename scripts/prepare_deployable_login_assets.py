@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from swf_utils import ROOT
 
@@ -45,11 +45,23 @@ def px(value: float) -> int:
     return round(value * SUPERSAMPLE)
 
 
-# Dropped from 108,000 when the logo moved into the header strip and the band
-# behind that strip was flattened to black: the same picture now costs far less,
-# so a smaller allowance still buys the same quality as before (48),
-# and the freed bytes pay for the sharp header logo.
-BACKGROUND_BUDGET = 91_500
+# The console text no longer shares this bitmap. It has been lifted onto its
+# own lossless overlay layer (see build_console_overlay / insert_console_layer),
+# so 1925 is now pure photograph plus the flat dark console shell, and the two
+# jobs that used to fight over one JPEG allowance are finally separate: the
+# photo gets all of this budget, and the text is crisp because it is not in a
+# JPEG at all. The overlay's own lossless layer is ~28KB, so the photo comes
+# down from 91KB to make room for it under the fixed embedded allocation; a
+# dark, pre-graded photograph holds up cleanly at the resulting quality where
+# the text - no longer in the JPEG - would have fallen apart.
+BACKGROUND_BUDGET = 59_400
+# With the text gone this bitmap is pure photograph, which JPEG handles well,
+# so most of the heavy softening that existed only to protect the text can go.
+# What remains settles the poster's ~1.1x upscale and holds the photo at a
+# clean Q~51 within budget - marginally sharper than the old 1.3, with no text
+# left to pay the price for the extra detail.
+HERO_SOFTEN = 1.2
+BACKGROUND_SUPERSAMPLE = 2
 
 # --- concept mapping -------------------------------------------------------
 # The concept render is 1608x978. Multiply its coordinates by these to land on
@@ -68,15 +80,25 @@ CONSOLE_BOTTOM = 571
 CONSOLE_LEFT = 13
 CONSOLE_RIGHT = 788
 
-# Hero band. Filling the band's full height would crop ~28% of the scene's
-# width and cut the outer Chevelle and Mustang in half; showing the scene at
-# full width leaves a third of the band empty. 0.24 is the balance: a mild
-# ~9%-per-side crop with the cars still whole, and the remainder carrying the
-# garage backdrop rather than dead black.
-HERO_BACKDROP_RATIO = 0.24
-# How opaque the extended ceiling stays at the very top. Fading fully to black
-# is what made the upper band read as an empty void instead of a room.
-HERO_CEILING_MIN_ALPHA = 70
+# Hero band. The supplied 1448x1086 poster - a far richer grade of the same
+# render than either the element pack's letterbox crop or the 1920x1080 frame:
+# deeper blacks, stronger floor reflections, and its own lighting already in
+# place. Being 1448 wide it is a ~1.1x upscale to fill the band rather than a
+# downscale, which is a much smaller price than the grade is worth.
+HERO_SOURCE = ROOT / "assets" / "login" / "login_poster_1448x1086.png"
+# Row of the source the band starts at. The poster is a full layout - red
+# ceiling strip, then a carbon banner carrying its own 1320 LEGENDS lockup and
+# tagline, then the cars, then a footer URL bar. Only the cars are wanted here:
+# the banner's lockup would sit just under the live header strip and read as a
+# second logo, and the footer would be buried behind the console. 360 keeps the
+# ceiling glow above the cars and drops both.
+HERO_TOP = 360
+# Vignette depth. The poster arrives already graded - it falls away at the
+# edges on its own - so this only takes the corners down enough to seat the
+# band against the console and header. Anything more double-vignettes it.
+VIGNETTE_SIDE = 0.16
+VIGNETTE_TOP = 0.16
+VIGNETTE_DEPTH = 0.22
 
 # The logo is no longer baked here. It lives in the header strip as character
 # 2039 (see prepare_header_assets.py), which scripts/unhide_character.py brings
@@ -101,9 +123,9 @@ RECOVERY_RIGHT = 765
 RECOVERY_TOP = 545
 
 BUTTONS = {
-    "btn_discord": {"size": (174, 29), "budget": 4_200, "source": "09_button_discord.png"},
-    "btn_create": {"size": (172, 29), "budget": 4_200, "source": "10_button_create_account.png"},
-    "btn_login": {"size": (172, 29), "budget": 4_200, "source": "11_button_login.png"},
+    "btn_discord": {"size": (174, 29), "budget": 4_050, "source": "09_button_discord.png"},
+    "btn_create": {"size": (172, 29), "budget": 4_050, "source": "10_button_create_account.png"},
+    "btn_login": {"size": (172, 29), "budget": 4_050, "source": "11_button_login.png"},
 }
 
 
@@ -163,39 +185,54 @@ def place(stage: Image.Image, element: Image.Image,
     stage.alpha_composite(resized, (left, top))
 
 
-def place_hero(stage: Image.Image, element: Image.Image, top: float, bottom: float) -> None:
-    """Fill the hero band with the car scene, cropping the sides, not the floor.
+def place_hero(stage: Image.Image, top: float, bottom: float) -> None:
+    """Fill the hero band with the garage scene, at or below native resolution.
 
-    The concept's hero crop is 1600x422 (aspect 3.79) but the band left over
-    once the 69px live header is reserved is much squarer. Fitting by width
-    left a third of the band as dead black above the cars; fitting by height
-    would crop the outer two cars off the stage. Instead the source is cropped
-    horizontally to the band's aspect — keeping full car height — and a slim
-    backdrop strip is extended above it, matching the concept's own proportion.
+    The element pack's `04_car_hero_complete` is a 1600x422 letterbox crop of
+    this same render. Fitting it to the band meant upscaling it ~1.2x and then
+    manufacturing the strip above the cars by stretching a six-pixel slice of
+    its top edge across eighty stage pixels — which is what made the upper
+    third of the band read as a vertical smear rather than a room.
+
+    `login_background_cars_1920x1080.png` is the full frame at 1920x1080, so
+    the band can be cropped from it at the right aspect and *downscaled*. The
+    ceiling comes from the scene instead of being invented, and no pixel is
+    ever magnified.
     """
-    band_height = (bottom - top) * (1 - HERO_BACKDROP_RATIO)
-    car_top = bottom - band_height
-    width, height = px(STAGE_SIZE[0]), px(band_height)
+    source = HERO_SOURCE
+    if not source.exists():
+        raise SystemExit(f"Missing hero source: {source}")
+    scene = Image.open(source).convert("RGBA")
 
-    target_aspect = width / height
-    crop_width = min(element.width, round(element.height * target_aspect))
-    inset = (element.width - crop_width) // 2
-    cropped = element.crop((inset, 0, inset + crop_width, element.height))
-    scaled = cropped.resize((width, height), Image.Resampling.LANCZOS)
+    width, height = px(STAGE_SIZE[0]), px(bottom - top)
+    crop_height = round(scene.width * height / width)
+    crop_top = min(HERO_TOP, max(0, scene.height - crop_height))
+    band = scene.crop((0, crop_top, scene.width, crop_top + crop_height))
+    band = band.resize((width, height), Image.Resampling.LANCZOS)
+    band = vignette(band)
+    if HERO_SOFTEN:
+        band = band.filter(ImageFilter.GaussianBlur(HERO_SOFTEN))
+    stage.alpha_composite(band, (0, px(top)))
 
-    fill_height = px(car_top) - px(top)
-    if fill_height > 0:
-        # Extend the scene's own dark ceiling upward and ramp it into black, so
-        # the strip above the cars reads as the same garage rather than a band
-        # of flat black.
-        ceiling = scaled.crop((0, 0, width, min(px(6), height)))
-        ceiling = ceiling.resize((width, fill_height), Image.Resampling.LANCZOS)
-        ramp = Image.linear_gradient("L").resize((width, fill_height),
-                                                 Image.Resampling.BILINEAR)
-        span = 255 - HERO_CEILING_MIN_ALPHA
-        ceiling.putalpha(ramp.point(lambda v: HERO_CEILING_MIN_ALPHA + v * span // 255))
-        stage.alpha_composite(ceiling, (0, px(top)))
-    stage.alpha_composite(scaled, (0, px(car_top)))
+
+def vignette(band: Image.Image) -> Image.Image:
+    """Fall the band away to near-black at the sides and top."""
+    width, height = band.size
+    shade = Image.new("L", (width, height), 255)
+    pixels = shade.load()
+    reach_x = max(1, width * VIGNETTE_SIDE)
+    reach_y = max(1, height * VIGNETTE_TOP)
+    floor = 1.0 - VIGNETTE_DEPTH
+    columns = []
+    for x in range(width):
+        edge = min(x, width - 1 - x) / reach_x
+        columns.append(1.0 if edge >= 1 else floor + (1 - floor) * edge)
+    for y in range(height):
+        edge = y / reach_y
+        row = 1.0 if edge >= 1 else floor + (1 - floor) * edge
+        for x in range(width):
+            pixels[x, y] = int(255 * min(1.0, columns[x] * row))
+    return Image.composite(band, Image.new("RGBA", band.size, (0, 0, 0, 255)), shade)
 
 
 def draw_padlock(stage: Image.Image, anchor: tuple[float, float]) -> None:
@@ -245,10 +282,20 @@ def draw_console(stage: Image.Image) -> None:
     so the shell is left empty everywhere they land.
     """
     draw = ImageDraw.Draw(stage)
-    heading_font = font("arialbi.ttf", 13)    # concept headings are bold italic
-    sub_font = font("ariali.ttf", 9.5)        # subtitles are italic
-    label_font = font("arialbd.ttf", 9.5)     # field labels are upright bold
-    note_font = font("ariali.ttf", 8)
+    # Arial was a placeholder. The concept sets this console in a squared,
+    # slightly condensed industrial face; Franklin Gothic Medium is the closest
+    # thing installed, and its italic has the flat terminals the concept's
+    # headings do. Small copy moves to Segoe UI, which is hinted for screen and
+    # holds together at 10px where Arial Italic was breaking up.
+    heading_font = font("framdit.ttf", 13)    # concept headings are bold italic
+    # Bold italic, not italic. These sit inside a lossy photographic JPEG, and
+    # a 10px italic's hairlines are the first thing its ringing eats - that is
+    # what "Secure and fast login" was losing. The weight goes up and the colour
+    # comes down to compensate, so it still reads as secondary copy but its
+    # strokes survive the encode.
+    sub_font = font("segoeuiz.ttf", 10)       # subtitles are italic
+    label_font = font("framd.ttf", 10)        # field labels are upright
+    note_font = font("segoeuiz.ttf", 8.5)
 
     def text(pos: tuple[float, float], value: str, face, fill, anchor: str = "la") -> None:
         draw.text((px(pos[0]), px(pos[1])), value, font=face, fill=fill, anchor=anchor)
@@ -263,9 +310,9 @@ def draw_console(stage: Image.Image) -> None:
         )
 
     text(HEADING_DISCORD, "CONNECT WITH DISCORD", heading_font, (236, 238, 241))
-    text(SUB_DISCORD, "Secure and fast login", sub_font, (146, 149, 155))
+    text(SUB_DISCORD, "Secure and fast login", sub_font, (132, 136, 143))
     text(HEADING_RACER, "NEW RACER?", heading_font, (236, 238, 241))
-    text(SUB_RACER, "Create your account", sub_font, (146, 149, 155))
+    text(SUB_RACER, "Create your account", sub_font, (132, 136, 143))
     text(LABEL_RACER_NAME, "RACER NAME", label_font, (222, 224, 228))
     text(LABEL_PASSWORD, "PASSWORD", label_font, (222, 224, 228))
 
@@ -279,18 +326,24 @@ def draw_console(stage: Image.Image) -> None:
 
     # Footer row, both italic in the concept.
     draw_padlock(stage, SECURE_NOTE)
-    text(SECURE_NOTE, "Secure Connection", note_font, (162, 165, 171))
+    text(SECURE_NOTE, "Secure Connection", note_font, (148, 152, 159))
     text((RECOVERY_RIGHT, RECOVERY_TOP), "Forgot password?", sub_font,
-         (198, 201, 207), anchor="ra")
+         (186, 190, 197), anchor="ra")
 
 
-def make_stage(manifest: dict) -> Image.Image:
-    """Composite the stage from the approved element layers, at SUPERSAMPLE x."""
+def make_stage(manifest: dict, with_console: bool = True) -> Image.Image:
+    """Composite the stage from the approved element layers, at SUPERSAMPLE x.
+
+    With `with_console` false the console's crisp elements - text, dividers,
+    wells and padlock - are left out; only the flat dark shell and its red trim
+    remain. That is the version baked into the photographic JPEG (1925). The
+    crisp elements are rendered separately by build_console_overlay onto a
+    lossless layer, so they never touch the JPEG.
+    """
     del manifest  # geometry now comes from the concept mapping, not the crops
     stage = Image.new("RGBA", (px(STAGE_SIZE[0]), px(STAGE_SIZE[1])), (0, 0, 0, 255))
 
-    place_hero(stage, load_element("04_car_hero_complete"),
-               HEADER_RESERVED_HEIGHT, CONSOLE_TOP)
+    place_hero(stage, HEADER_RESERVED_HEIGHT, CONSOLE_TOP)
 
     # Illuminated trim along the top edge of the console band.
     trim = load_element("16_red_edge_trim")
@@ -300,7 +353,8 @@ def make_stage(manifest: dict) -> Image.Image:
     place(stage, load_element("19_console_shell_blank"),
           (CONSOLE_LEFT, CONSOLE_TOP, CONSOLE_RIGHT, CONSOLE_BOTTOM))
 
-    draw_console(stage)
+    if with_console:
+        draw_console(stage)
 
     # The live header strip is opaque and covers the top of this bitmap, so
     # whatever lands under it is never seen but still costs JPEG bits. Flatten
@@ -308,6 +362,32 @@ def make_stage(manifest: dict) -> Image.Image:
     stage.paste((0, 0, 0, 255),
                 (0, 0, stage.width, px(HEADER_RESERVED_HEIGHT)))
     return stage.convert("RGB")
+
+
+def build_console_overlay() -> Image.Image:
+    """Render the console's crisp elements onto a transparent 850x650 layer.
+
+    This is the same geometry draw_console bakes into the background, but on
+    full transparency and pasted into the bitmap at the identical STAGE_OFFSET,
+    so it maps onto the stage exactly as 1925 does. The SWF displays it through
+    a clone of the background's own shape (see insert_console_layer.py), which
+    guarantees pixel alignment with the photo underneath without any matrix
+    arithmetic. Being lossless, the text is finally immune to JPEG.
+
+    Transparent pixels cost almost nothing once zlib-compressed, so a full-frame
+    layer is barely larger than a tightly-cropped one and far simpler to place.
+    """
+    stage = Image.new("RGBA", (px(STAGE_SIZE[0]), px(STAGE_SIZE[1])), (0, 0, 0, 0))
+    draw_console(stage)
+    bitmap = Image.new("RGBA", (px(BITMAP_SIZE[0]), px(BITMAP_SIZE[1])), (0, 0, 0, 0))
+    bitmap.alpha_composite(stage, (px(STAGE_OFFSET[0]), px(STAGE_OFFSET[1])))
+    if BACKGROUND_SUPERSAMPLE != SUPERSAMPLE:
+        ratio = BACKGROUND_SUPERSAMPLE / SUPERSAMPLE
+        bitmap = bitmap.resize(
+            (round(bitmap.width * ratio), round(bitmap.height * ratio)),
+            Image.Resampling.LANCZOS,
+        )
+    return bitmap
 
 
 def make_button(size: tuple[int, int], source_name: str) -> Image.Image:
@@ -320,13 +400,14 @@ def make_button(size: tuple[int, int], source_name: str) -> Image.Image:
     source = TELEMETRY_ELEMENTS / source_name
     if not source.exists():
         raise RuntimeError(f"Missing telemetry button: {source}")
-    crop = Image.open(source).convert("RGB").resize(
+    # No recolour. The 32% maroon blend that used to be here dated from when
+    # these were the legacy blue/steel controls; the telemetry pack's buttons
+    # are the concept's own art, already in the right palette. Blending maroon
+    # into all three is what turned the Discord button - which the concept
+    # draws near-black - into a red one.
+    return Image.open(source).convert("RGB").resize(
         (px(size[0]), px(size[1])), Image.Resampling.LANCZOS
     )
-    # Shift the legacy blue/steel controls into the maroon racing palette while
-    # retaining the original white glyphs and readable contrast.
-    maroon = Image.new("RGB", crop.size, (112, 8, 20))
-    return Image.blend(crop, maroon, 0.32)
 
 
 def extend_into_bitmap(stage: Image.Image) -> Image.Image:
@@ -335,6 +416,14 @@ def extend_into_bitmap(stage: Image.Image) -> Image.Image:
     # black so artwork cannot bleed into the host application's frame.
     bitmap = Image.new("RGB", (px(BITMAP_SIZE[0]), px(BITMAP_SIZE[1])), (0, 0, 0))
     bitmap.paste(stage, (px(STAGE_OFFSET[0]), px(STAGE_OFFSET[1])))
+    if BACKGROUND_SUPERSAMPLE != SUPERSAMPLE:
+        # Composited at 2x - the text, dividers and wells are crisper for it -
+        # then resolved down to the resolution the bitmap actually ships at.
+        ratio = BACKGROUND_SUPERSAMPLE / SUPERSAMPLE
+        bitmap = bitmap.resize(
+            (round(bitmap.width * ratio), round(bitmap.height * ratio)),
+            Image.Resampling.LANCZOS,
+        )
     return bitmap
 
 
@@ -342,7 +431,7 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     manifest = load_manifest()
 
-    stage = make_stage(manifest)
+    stage = make_stage(manifest, with_console=False)
     stage.save(OUT_DIR / "login_stage_800x600.png", "PNG", optimize=True)
     bitmap = extend_into_bitmap(stage)
     bitmap.save(OUT_DIR / "login_bitmap_850x650_preview.png", "PNG", optimize=True)
@@ -350,9 +439,17 @@ def main() -> None:
                                   BACKGROUND_BUDGET)
     # Filenames keep their logical stage dimensions so the build script's paths
     # stay stable; the pixel dimensions are SUPERSAMPLE x those numbers.
-    print(f"background: {bitmap.width}x{bitmap.height} ({SUPERSAMPLE}x), "
-          f"quality={quality}, "
+    print(f"background (photo only): {bitmap.width}x{bitmap.height} "
+          f"({SUPERSAMPLE}x), quality={quality}, "
           f"bytes={(OUT_DIR / 'login_bitmap_850x650.jpg').stat().st_size:,}")
+
+    # The crisp console, on its own transparent lossless layer. Saved as a
+    # straight RGBA PNG; insert_console_layer.py turns it into the SWF's
+    # DefineBitsLossless2 tag for the new character.
+    overlay = build_console_overlay()
+    overlay.save(OUT_DIR / "login_console_overlay.png", "PNG", optimize=True)
+    print(f"console overlay: {overlay.width}x{overlay.height} "
+          f"({SUPERSAMPLE}x), bbox={overlay.getbbox()}")
 
     # Remove the legacy warning triangle while preserving the password-
     # recovery button symbol and its click target.

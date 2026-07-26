@@ -91,8 +91,34 @@ def _swf_body_start(data: bytes) -> int:
     return pos + 4
 
 
-def unhide(path: Path, sprite_id: int, depth: int) -> int:
-    """Strip the colour transform. Returns the number of bytes removed."""
+def _matrix_bytes(dx: float, dy: float) -> bytes:
+    """Smallest MATRIX record carrying just a translation, in stage pixels."""
+    x, y = round(dx * 20), round(dy * 20)
+    bits = 1
+    while any(v < -(1 << (bits - 1)) or v >= (1 << (bits - 1)) for v in (x, y)):
+        bits += 1
+    stream = [0, 0]                                   # no scale, no rotate
+    stream += [(bits >> (4 - i)) & 1 for i in range(5)]
+    for value in (x, y):
+        if value < 0:
+            value += 1 << bits
+        stream += [(value >> (bits - 1 - i)) & 1 for i in range(bits)]
+    stream += [0] * (-len(stream) % 8)
+    return bytes(
+        sum(bit << (7 - i) for i, bit in enumerate(stream[byte:byte + 8]))
+        for byte in range(0, len(stream), 8)
+    )
+
+
+def unhide(path: Path, sprite_id: int, depth: int,
+           dx: float = 0.0, dy: float = 0.0) -> int:
+    """Strip the colour transform, optionally re-placing the object.
+
+    The blanked placement carries an identity matrix with a zero-width
+    translate field, so a shift cannot be written in place: the matrix is
+    rebuilt here instead, while the tag is already being rewritten anyway.
+
+    Returns the number of bytes removed (negative if the tag grew)."""
     data = path.read_bytes()
     for pos, header, code, length in _iter_tags(data, _swf_body_start(data), len(data)):
         if code != DEFINE_SPRITE:
@@ -112,15 +138,24 @@ def unhide(path: Path, sprite_id: int, depth: int) -> int:
             cursor = p + 3
             if flags & HAS_CHARACTER:
                 cursor += 2
+            matrix_start = cursor
             if flags & HAS_MATRIX:
                 cursor = _skip_matrix(data, cursor)
             cxform_start = cursor
             cxform_end = _skip_cxform(data, cursor)
-            removed = cxform_end - cxform_start
 
+            matrix = data[matrix_start:cxform_start]
+            if dx or dy:
+                if not flags & HAS_MATRIX:
+                    raise RuntimeError(
+                        f"sprite {sprite_id} depth {depth} has no matrix to replace"
+                    )
+                matrix = _matrix_bytes(dx, dy)
             place_body = (bytes([flags & ~HAS_COLOR_TRANSFORM])
-                          + data[p + 1:cxform_start]
+                          + data[p + 1:matrix_start]
+                          + matrix
                           + data[cxform_end:tpos + theader + tlength])
+            removed = (tpos + theader + tlength) - tpos - 2 - len(place_body)
             new_place = (struct.pack("<H", (PLACE_OBJECT2 << 6) | len(place_body))
                          + place_body)
             sprite_body = (data[pos + header:tpos]
