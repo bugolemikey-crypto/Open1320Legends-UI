@@ -61,7 +61,10 @@ function drawFinishPicker()
    finishPicker._x = btnSpecific._x;
    finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish");
+   // Index 6 is the rim camo test, not a finish. It rides this loop,
+   // highlightFinish and setFinish's redraw rather than bringing its own
+   // attachMovie/label/redraw trio - a second set does not fit the budget.
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Rim camo");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)
@@ -72,7 +75,15 @@ function drawFinishPicker()
       _loc3_.txt = _loc4_[_loc2_];
       _loc3_.onRelease = function()
       {
-         setFinish(this.finishID);
+         if(this.finishID != 6)
+         {
+            setFinish(this.finishID);
+         }
+         else
+         {
+            classes.CarConstruction.camoMap[accountCarID] = !classes.CarConstruction.camoMap[accountCarID];
+            setFinish(selectedFinish);
+         }
       };
       finishBtnArray.push(_loc3_);
       _loc2_ = _loc2_ + 1;
@@ -94,7 +105,8 @@ function highlightFinish()
    var _loc1_ = 0;
    while(_loc1_ < finishBtnArray.length)
    {
-      if(_loc1_ == selectedFinish)
+      // selectedFinish is only ever 0-5, so row 6 lights from the camo flag.
+      if(_loc1_ == selectedFinish || _loc1_ == 6 && classes.CarConstruction.camoMap[accountCarID])
       {
          finishBtnArray[_loc1_].fld.setTextFormat(tfInit);
       }

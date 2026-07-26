@@ -17,6 +17,10 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
+   // Account car id -> rim camo on. Session only, garage/thumbnail views only:
+   // the track view's wheels take a plain tint, not the baked overlay the
+   // pattern lives in. A legibility test, not a shipped feature.
+   static var camoMap = new Object();
    static var finishSO;
    function CarConstruction(mc, pBackView)
    {
@@ -159,11 +163,7 @@ class classes.CarConstruction
       _loc2_.d = this.wheelFrac;
       _loc2_.tx = _loc4_.x * (1 - _loc2_.a);
       _loc2_.ty = _loc4_.y * (1 - _loc2_.d);
-      // Pass the wheel's own colour transform: draw() ignores the source clip's
-      // transform unless handed one (which is why drawTireMap passes an explicit
-      // identity), so without this the tint would show in the garage but vanish
-      // from every baked thumbnail.
-      _loc3_.draw(this.__MC.wheelF,_loc2_,this.__MC.wheelF.transform.colorTransform);
+      _loc3_.draw(this.__MC.wheelF,_loc2_);
       this.__MC.brake._x = this.__MC.wheelF._x - (1 - this.wheelFrac) * 10;
       this.__MC.brake._y = this.__MC.wheelF._y - (1 - this.wheelFrac) * 6;
       this.__MC.bdTireFront.dispose();
@@ -201,7 +201,7 @@ class classes.CarConstruction
       _loc2_.d = this.wheelFracR;
       _loc2_.tx = _loc4_.x * (1 - _loc2_.a);
       _loc2_.ty = _loc4_.y * (1 - _loc2_.d);
-      _loc3_.draw(this.__MC.wheelR,_loc2_,this.__MC.wheelR.transform.colorTransform);
+      _loc3_.draw(this.__MC.wheelR,_loc2_);
       this.__MC.bdTireRear.dispose();
       this.__MC.bdTireRear = new flash.display.BitmapData(145,149,true,0);
       this.__MC.bdTireRear.copyPixels(_loc3_,_loc3_.rectangle,new flash.geom.Point(0,0),this.bdTireMap,new flash.geom.Point(this.__MC.tireR._x,this.__MC.tireR._y));
@@ -613,28 +613,133 @@ class classes.CarConstruction
       // part gets - so init() skips them, and setPartColor's first line
       // (target = target.actual) makes the whole function a silent no-op on a
       // wheel. Tint the clip itself instead.
-      this.setWheelColor(this.__MC.wheelF,cs.wheelFClr);
-      this.setWheelColor(this.__MC.wheelR,cs.wheelRClr);
+      this.setWheelColor(this.__MC.wheelF,cs.wheelFClr,cs.acctCarID);
+      this.setWheelColor(this.__MC.wheelR,cs.wheelRClr,cs.acctCarID);
+      // The track view draws its own wheels. Drawing builds carBody.wheelF/R as
+      // separate clips from different art (wheelR_*.swf) and leaves them LIVE on
+      // top of the snapshot bitmap, so the garage tint never reached them - paint
+      // held everywhere except on track. Nothing draws these through an identity
+      // transform, so unlike the garage wheels a plain colorTransform sticks and
+      // no bake is needed. They are guaranteed loaded here: Drawing gates
+      // setCar on carBody.wheelF.isLoaded (classes/Drawing.as:1276).
+      var _loc4_ = this.__MC._parent.carBody;
+      this.setLiveWheelColor(_loc4_.wheelF,cs.wheelFClr);
+      this.setLiveWheelColor(_loc4_.wheelR,cs.wheelRClr);
       this.setFinishes(cs.globalClr >>> 24,cs.acctCarID);
    }
-   function setWheelColor(target, newClr)
+   // Pure multiply, no offset - and the offset is not coming back.
+   //
+   // An offset was tried to make white reachable (multiply can only darken, so
+   // painting a near-white rim white leaves it looking unpainted). It works for
+   // white and it ruins everything else: the dark areas BETWEEN the spokes are
+   // opaque black in the rim art, not transparent, so a constant offset paints
+   // them too and the wheel fills in as a solid coloured disc. Multiply leaves
+   // them black because anything times black is black.
+   //
+   // The accepted consequence: white reads as polished silver, which for chrome
+   // is close to honest anyway. Black works properly - the art's own light and
+   // dark scale down together, so the spokes keep their shape.
+   static function wheelTint(newClr)
    {
-      // Gated on a truthy colour, not on "defined". A server that persists the
-      // wheel node's cc as "000000" would otherwise multiply every wheel on
-      // every car to black - a regression on the whole game rather than a
-      // feature. The cost is that pure black is unreachable, which is no loss:
-      // the art is usually already dark, and 0 is what an unpainted part sends.
-      // It also means buying black deliberately RESTORES the stock wheel.
-      if(!newClr || !target)
+      return new flash.geom.ColorTransform((newClr >> 16 & 255) / 255,(newClr >> 8 & 255) / 255,(newClr & 255) / 255,1,0,0,0,0);
+   }
+   // Track-view wheels are live clips on top of the snapshot, not inside it, so
+   // nothing replaces their transform and a plain tint is enough.
+   function setLiveWheelColor(target, newClr)
+   {
+      if(newClr == undefined || !target)
       {
          return undefined;
       }
-      // A multiplying transform rather than Color.setRGB, which would flatten
-      // the wheel to one solid fill and throw away the spokes' shading. The art
-      // ships as silver/chrome, so scaling each channel reads as anodising and
-      // keeps every highlight the render already has. Built in one constructor
-      // call rather than read-modify-write purely to fit the byte budget.
-      target.transform.colorTransform = new flash.geom.ColorTransform((newClr >> 16 & 255) / 255,(newClr >> 8 & 255) / 255,(newClr & 255) / 255,1,0,0,0,0);
+      target.transform.colorTransform = classes.CarConstruction.wheelTint(newClr);
+   }
+   function setWheelColor(target, newClr, carID)
+   {
+      // Gated on "defined", not on truthiness, so black is paintable. An
+      // unpainted part is safe from this: the server writes cc="0" (one char,
+      // local-account-store.js:342) and CarSpecs only builds a *Clr spec when
+      // cc.length > 1, so never-painted wheels arrive as undefined while a
+      // deliberate 000000 arrives as 0. The earlier truthy gate could not tell
+      // those apart and so made black unreachable.
+      if(newClr == undefined || !target)
+      {
+         return undefined;
+      }
+      // Baked into pixels rather than set as the clip's colorTransform, because
+      // a transform on the wheel clip does NOT survive being snapshotted.
+      // Drawing.snapshotCar composites each wheel TWICE: once on its own through
+      // addToSnapshot, which passes an explicit identity ColorTransform
+      // (classes/Drawing.as:1351) that REPLACES the clip's own and strips the
+      // tint, and once inside carLoadin where it survives. The first pass draws
+      // the wheel unmasked, the second masks it to the arch - so the rim came out
+      // green only where the mask allowed and silver everywhere else.
+      //
+      // The wheel SWF places its art as shapes straight on the root timeline
+      // (only child clip is an empty "brakePos" marker), so there is no nested
+      // clip to carry the transform either. Drawing a tinted copy over the top
+      // works because the overlay has exactly the original's alpha coverage: it
+      // hides the silver completely, and being a child it is immune to the
+      // identity transform applied to the parent. Same reason the flake finish
+      // bakes its sparkle instead of using setMask.
+      target.tint.removeMovieClip();
+      var _loc6_ = target.getBounds(target);
+      var _loc7_ = Math.ceil(_loc6_.xMax - _loc6_.xMin);
+      var _loc8_ = Math.ceil(_loc6_.yMax - _loc6_.yMin);
+      if(_loc7_ < 1 || _loc8_ < 1)
+      {
+         return undefined;
+      }
+      // A multiply keeps the spokes' shading, where Color.setRGB would flatten
+      // the rim to one solid fill.
+      var _loc5_ = new flash.display.BitmapData(_loc7_,_loc8_,true,0);
+      var _loc4_ = new flash.geom.Matrix();
+      _loc4_.translate(- _loc6_.xMin,- _loc6_.yMin);
+      _loc5_.draw(target,_loc4_,classes.CarConstruction.wheelTint(newClr));
+      // Camo, multiplied over the already-tinted rim so the spokes keep their
+      // shading and the patches come out as two depths of the chosen colour
+      // rather than flat paint. Generated at an eighth scale and drawn back up
+      // with smoothing: noise at pixel scale is television static, and a rim is
+      // only ~60px on screen, so the blobs have to be coarse to read at all.
+      if(classes.CarConstruction.camoMap[carID])
+      {
+         // Keep the rim's alpha BEFORE the camo pass. Drawing an opaque bitmap
+         // with "multiply" does NOT leave transparent pixels alone - it fills
+         // them - so the first version painted an opaque square of blobs across
+         // the body and the background around each wheel. Blend semantics cannot
+         // be trusted to mask here; copyPixels with an explicit alpha source can.
+         var _loc11_ = _loc5_.clone();
+         // Three tones off a PRISTINE noise source, not two thresholds chained
+         // over the same buffer. Each threshold reads `_loc13_` and writes into
+         // `_loc9_` with copySource false, so unmatched pixels keep the mid tone
+         // - chaining in place would have re-thresholded already-written values.
+         // Blob size is the whole ballgame. At /10 the patches were ~4px on a rim
+         // that renders around 60px, so they averaged into a uniform wash and the
+         // camo read as nothing. /24 gives roughly 10px patches - a handful
+         // across the wheel, which is what actual camo looks like at any scale.
+         var _loc13_ = new flash.display.BitmapData(Math.ceil(_loc7_ / 24),Math.ceil(_loc8_ / 24),false,16777215);
+         _loc13_.noise(4711,0,255,7,true);
+         var _loc9_ = new flash.display.BitmapData(_loc13_.width,_loc13_.height,false,12500670);
+         _loc9_.threshold(_loc13_,_loc13_.rectangle,new flash.geom.Point(0,0),">",4289374890,4294967295,4294967295,false);
+         _loc9_.threshold(_loc13_,_loc13_.rectangle,new flash.geom.Point(0,0),"<",4285427310,4286414205,4294967295,false);
+         var _loc10_ = new flash.geom.Matrix();
+         _loc10_.scale(24,24);
+         // smooth FALSE. Camo has hard edges; smoothing blurred the tones into
+         // each other and the whole thing read as extra shading on the spokes
+         // rather than as a pattern.
+         _loc5_.draw(_loc9_,_loc10_,new flash.geom.ColorTransform(),"multiply",null,false);
+         _loc13_.dispose();
+         // Re-clamp to the rim silhouette: camo RGB, original alpha.
+         var _loc12_ = new flash.display.BitmapData(_loc7_,_loc8_,true,0);
+         _loc12_.copyPixels(_loc5_,_loc5_.rectangle,new flash.geom.Point(0,0),_loc11_,new flash.geom.Point(0,0),false);
+         _loc9_.dispose();
+         _loc11_.dispose();
+         _loc5_.dispose();
+         _loc5_ = _loc12_;
+      }
+      var _loc3_ = target.createEmptyMovieClip("tint",target.getNextHighestDepth());
+      _loc3_.attachBitmap(_loc5_,1,"auto",true);
+      _loc3_._x = _loc6_.xMin;
+      _loc3_._y = _loc6_.yMin;
    }
    function garbageCollect()
    {
