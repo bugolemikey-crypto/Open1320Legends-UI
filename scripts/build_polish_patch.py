@@ -112,14 +112,28 @@ LOSSLESS_TABS = {
     2014: HEADER_PREPARED / "toolbar_email_80x22.png",
 }
 
-# The Support tab completes the dock family. Its plate's shape (2023) is a
-# DefineShape2 with a [0xFFFF, bitmap] fill, which the game's old projector
-# renders as a solid red block when the bitmap is anything but the exact bytes
-# it shipped with - every re-encode reproduced the "Support red block". So the
-# three Support bitmaps are spliced in verbatim from the known-good dark-theme
-# build (CURATED-v2) rather than re-encoded: byte-identical, guaranteed clean.
+# The Support tab completes the dock family. Its plate's shape (2023) is the
+# dock's only DefineShape2, and this projector red-renders a *Lossless2* bitmap
+# under a DefineShape2 - that, not the pixels, is what produced the long-
+# standing "Support red block". The earlier reading of the bug (that any
+# re-encode reproduced it) came from re-encoding the plate the same way the
+# other three tabs are encoded, i.e. as Lossless2. Compare the two builds and
+# the rule is plain: in main.KNOWN-GOOD the tabs 2005/2011/2014 are Lossless2
+# (their shapes are plain DefineShape) while every character shape 2023 draws -
+# 2021 and 2022 - is DefineBitsJPEG3.
+#
+# So the plate can carry freshly drawn art after all, as long as it stays
+# JPEG3. It now ships the same button the other three do, at 2x and at maximum
+# quality, which costs 4,211B against the 4,386B curated tag it replaces.
+#
+# 2020 (the legacy red italic "Support" caption) and 2021 (its Discord glyph)
+# stay spliced in as the known-good *blanks* they already are: the whole
+# control - panel, glyph and label - is drawn into the plate, so those two
+# overlays must not draw anything on top of it.
+SUPPORT_PLATE = {
+    2022: (HEADER_PREPARED / "toolbar_support_113x19.png", 4_386),
+}
 CURATED_SUPPORT = {
-    2022: POLISH_PREPARED / "support_plate_2022_curated.tag",
     2020: POLISH_PREPARED / "support_text_2020_curated.tag",
     2021: POLISH_PREPARED / "support_icon_2021_curated.tag",
 }
@@ -320,12 +334,22 @@ def main() -> None:
             size = replace_lossless2(art, character, source)
             print(f"character {character}: {size:,} bytes lossless (dock tab)")
 
-        # The Support tab's three bitmaps, spliced in byte-for-byte from the
-        # clean dark-theme build (see CURATED_SUPPORT) so its DefineShape2 plate
-        # renders without the red block. Its shape 2023 is retuned to 2x below.
+        # The Support tab's two overlay characters, spliced in byte-for-byte
+        # from the clean dark-theme build (see CURATED_SUPPORT) as the blanks
+        # they are, so nothing draws over the plate. Shape 2023 is retuned to 2x
+        # below.
         for character, tag_path in CURATED_SUPPORT.items():
             size = splice_bitmap_tag(art, character, tag_path.read_bytes())
             print(f"character {character}: {size:,} bytes spliced (curated Support)")
+
+        # The Support plate itself, now drawn in the same family as the other
+        # three tabs. JPEG3 and never Lossless2 - see SUPPORT_PLATE - because
+        # shape 2023 is a DefineShape2. Runs after the splice above so it is
+        # replacing a known tag.
+        for character, (source, budget) in SUPPORT_PLATE.items():
+            size, quality = replace_jpeg3(art, character, source, budget)
+            print(f"character {character}: {size:,} bytes at quality {quality} "
+                  f"(Support plate)")
 
         retuned = retune_bitmap_scale(art, SUPERSAMPLE, RETUNE_SHAPES)
         if len(retuned) != len(RETUNE_SHAPES):
