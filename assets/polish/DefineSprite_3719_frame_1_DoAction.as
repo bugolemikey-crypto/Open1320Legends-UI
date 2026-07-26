@@ -61,7 +61,7 @@ function drawFinishPicker()
    finishPicker._x = btnSpecific._x;
    finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish");
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)

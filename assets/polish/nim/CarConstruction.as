@@ -17,6 +17,7 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
+   static var bdFlake;
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -276,6 +277,51 @@ class classes.CarConstruction
       false;
       false;
    }
+   // One sparkle tile shared by every part of every car: sparse opaque white
+   // specks on transparent. Built by thresholding greyscale noise so only the
+   // top few percent of pixels survive - that sparseness is what reads as flake
+   // rather than as grain. Built once, on first use.
+   function flakeBitmap()
+   {
+      if(classes.CarConstruction.bdFlake == undefined)
+      {
+         var _loc2_ = new flash.display.BitmapData(64,64,false,0);
+         _loc2_.noise(9871,0,255,7,true);
+         var _loc3_ = new flash.display.BitmapData(64,64,true,0);
+         _loc3_.threshold(_loc2_,new flash.geom.Rectangle(0,0,64,64),new flash.geom.Point(0,0),">",4293980400,4294967295,4294967295,false);
+         _loc2_.dispose();
+         classes.CarConstruction.bdFlake = _loc3_;
+      }
+      return classes.CarConstruction.bdFlake;
+   }
+   // Tiles that sparkle over the part and masks it to the panel with another
+   // duplicate of paint, the same trick initPart uses for shad and hi. Screen
+   // blended so the specks only ever lighten. Costs nothing per frame because
+   // Drawing.snapshotCar flattens the whole car to a BitmapData afterwards.
+   function setPartFlake(target, useFlake)
+   {
+      target.flake.removeMovieClip();
+      target.flakeMask.removeMovieClip();
+      if(!useFlake)
+      {
+         return undefined;
+      }
+      var _loc2_ = target.getBounds(target);
+      var _loc4_ = target.createEmptyMovieClip("flake",target.getNextHighestDepth());
+      _loc4_.beginBitmapFill(this.flakeBitmap(),null,true,false);
+      _loc4_.moveTo(_loc2_.xMin,_loc2_.yMin);
+      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMin);
+      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMax);
+      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMax);
+      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMin);
+      _loc4_.endFill();
+      _loc4_.blendMode = "screen";
+      _loc4_._alpha = 38;
+      var _loc3_ = target.paint.duplicateMovieClip("flakeMask",target.getNextHighestDepth());
+      _loc4_.setMask(_loc3_);
+      // Keep trim, badges and light housings above the sparkle.
+      target.noPaint.swapDepths(target.getNextHighestDepth());
+   }
    function liftFilter(v)
    {
       return new flash.filters.ColorMatrixFilter([1,0,0,0,v,0,1,0,0,v,0,0,1,0,v,0,0,0,1,0]);
@@ -324,7 +370,10 @@ class classes.CarConstruction
       }
       target.hi.blendMode = "screen";
       target.hi.filters = [target.fltrHi];
-      if(!fin)
+      this.setPartFlake(target,fin == 4);
+      // Flake keeps the gloss base and gets its character from the sparkle layer,
+      // so it wants none of the shad/hi tuning the other three finishes apply.
+      if(!fin || fin == 4)
       {
          return undefined;
       }
