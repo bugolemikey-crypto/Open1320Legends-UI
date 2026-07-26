@@ -415,9 +415,12 @@ class classes.CarConstruction
       var _loc2_ = target.shad.filters;
       if(fin == 1)
       {
-         // No specular at all. 24% still left a visible sheen on large panels.
-         target.hi._alpha = 0;
-         _loc2_.push(this.liftFilter(22));
+         // Zero specular went too far the other way: with no highlight at all the
+         // panels lose their form entirely and the car reads as a flat cut-out
+         // rather than matte paint. 14% is enough to describe the shape without
+         // looking glossy.
+         target.hi._alpha = 14;
+         _loc2_.push(this.liftFilter(18));
       }
       else if(fin == 2)
       {
@@ -609,6 +612,11 @@ class classes.CarConstruction
          this.__MC.wheelF._visible = false;
          this.__MC.wheelR._visible = false;
       }
+      // Last, deliberately. The glow knocks itself out where the tyres sit, and
+      // the tyres only reach their final position and scale in the setTire/
+      // drawTire calls above - running this from setColors used their unplaced
+      // defaults and the holes landed in the wrong place.
+      this.setUnderglow(cs.acctCarID);
    }
    function setColors(cs)
    {
@@ -641,7 +649,6 @@ class classes.CarConstruction
       var _loc4_ = this.__MC._parent.carBody;
       this.setLiveWheelColor(_loc4_.wheelF,cs.wheelFClr);
       this.setLiveWheelColor(_loc4_.wheelR,cs.wheelRClr);
-      this.setUnderglow(cs.acctCarID);
       this.setFinishes(cs.globalClr >>> 24,cs.acctCarID);
    }
    // Pure multiply, no offset - and the offset is not coming back.
@@ -675,6 +682,14 @@ class classes.CarConstruction
    // Baked for the same reason as the wheel tint: snapshotCar's very first call
    // is addToSnapshot(carLoadin.shadow), which passes an identity ColorTransform
    // and would discard a transform set on the clip.
+   function tyreBottom(tyre)
+   {
+      if(!tyre)
+      {
+         return 0;
+      }
+      return tyre.getBounds(this.__MC).yMax;
+   }
    function setUnderglow(carID)
    {
       var _loc7_ = this.__MC.shadow;
@@ -738,7 +753,51 @@ class classes.CarConstruction
       // slab instead - which is exactly what it looked like. Blurring only the
       // coloured layer keeps the spill soft while the shadow that follows stays
       // crisp, so the car still looks planted rather than smeared.
+      // Clip the glow at the TYRE CONTACT LINE, not at the shadow's edge.
+      //
+      // Previous attempt cleared the 24px padding below the shadow, which does
+      // nothing useful: the shadow is a ground ellipse that spreads well past the
+      // wheels, so its bottom edge sits far below where the tyres actually touch.
+      // Every pixel of glow between the contact line and the shadow's edge
+      // survived - which is the band that reads as the car hovering.
+      //
+      // getBounds against __MC gives each tyre's bottom in car space; the lowest
+      // of the two is the near-side contact line in a three-quarter view.
+      //
+      // Done BEFORE the blur, deliberately. Clipping afterwards left a razor
+      // straight horizontal edge across the glow that read as a graphic rather
+      // than light. Cutting first lets the blur feather the edge, which leaves a
+      // few pixels of soft spill below the contact line - what light actually
+      // does, and nothing like the solid band that made the car look airborne.
+      var _loc11_ = this.tyreBottom(this.__MC.tireF);
+      var _loc12_ = this.tyreBottom(this.__MC.tireR);
+      if(_loc12_ > _loc11_)
+      {
+         _loc11_ = _loc12_;
+      }
+      if(_loc11_)
+      {
+         var _loc13_ = Math.floor(_loc11_ - _loc7_._y - _loc2_.yMin + 24);
+         if(_loc13_ > 0 && _loc13_ < _loc5_)
+         {
+            _loc8_.fillRect(new flash.geom.Rectangle(0,_loc13_,_loc4_,_loc5_ - _loc13_),0);
+         }
+      }
+      // The dark shadow still goes over the top afterwards, so the tyres keep a
+      // proper contact shadow - it is only the coloured light that is removed.
       _loc8_.applyFilter(_loc8_,_loc8_.rectangle,new flash.geom.Point(0,0),new flash.filters.BlurFilter(13,13,2));
+      // Cut the tyres out of the glow. Light spilling from under the car should
+      // not appear beneath the contact patch - it reads as the wheels hovering
+      // rather than touching the ground. Erasing the tyre clip itself rather
+      // than a rectangle keeps the knockout the exact shape of the tyre, the
+      // same trick drawTireMap uses to punch the body out of the tyre map.
+
+      // Clear everything below the shadow's own bottom edge. That edge IS the
+      // ground contact line, and the 13px blur spreads colour past it - so light
+      // appeared underneath where the tyres meet the road, which is the same
+      // "car is hovering" read as glow on the contact patch itself. The blur has
+      // to happen first for the spill to exist, so this cannot be folded into
+      // the draw above.
       // 0.62 was far too heavy - it buried the colour and the glow came out dark
       // and dull. 0.28 is enough to put a contact patch back under the car
       // without eating the light.
