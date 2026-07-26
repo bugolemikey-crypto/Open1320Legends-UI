@@ -437,13 +437,15 @@ class classes.CarConstruction
    }
    function setFinishes(fin, carID)
    {
-      // The high byte of cc wins if the server ever carries one; otherwise fall
-      // back to the local per-car map. setPartColor masks with 0xFFFFFF, so an
-      // 8-character cc can never corrupt the hue either way.
-      var _loc3_ = fin;
+      // The session map wins over the high byte of cc, so switching finishes in
+      // the paint shop re-renders even though cloneXML's cc already carries a
+      // prefix from the last pick. cc is the fallback and is how a finish
+      // survives a reload. setPartColor masks with 0xFFFFFF, so an 8-character
+      // cc can never corrupt the hue either way.
+      var _loc3_ = Number(classes.CarConstruction.finishMap[carID]);
       if(!_loc3_)
       {
-         _loc3_ = Number(classes.CarConstruction.finishMap[carID]);
+         _loc3_ = fin;
       }
       if(!_loc3_)
       {
