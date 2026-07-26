@@ -79,12 +79,29 @@ function drawFinishPicker()
    var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Underglow");
    var _loc2_ = 0;
    var _loc3_;
+   // Finishes and underglow are members-only. Row 0 (Gloss) stays open to
+   // everyone - it is the "no finish" state, so locking it would strand a
+   // lapsed member on whatever they last picked with no way back to stock.
+   //
+   // Enforced client-side because the feature IS client-side: a finish lives in
+   // a local SharedObject and underglow only in memory, so there is no server
+   // call to reject. That makes the gate bypassable by a modified client, but
+   // the prize is a cosmetic nobody else can see - not worth more than this
+   // until they become server entities, at which point the check moves there.
+   var _loc5_ = Number(classes.GlobalData.attr.mb) > 0;
    while(_loc2_ < _loc4_.length)
    {
       _loc3_ = finishPicker.attachMovie("shopMenuListItem","fin" + _loc2_,_loc2_ + 1);
       _loc3_._y = _loc2_ * paintMenuYSpacing;
       _loc3_.finishID = _loc2_;
       _loc3_.txt = _loc4_[_loc2_];
+      if(_loc2_ > 0 && !_loc5_)
+      {
+         _loc3_._alpha = 40;
+         _loc2_ = _loc2_ + 1;
+         finishBtnArray.push(_loc3_);
+         continue;
+      }
       _loc3_.onRelease = function()
       {
          if(this.finishID < 6)

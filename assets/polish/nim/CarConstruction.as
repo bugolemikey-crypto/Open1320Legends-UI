@@ -672,16 +672,29 @@ class classes.CarConstruction
          return undefined;
       }
       var _loc2_ = _loc7_.getBounds(_loc7_);
-      var _loc4_ = Math.ceil(_loc2_.xMax - _loc2_.xMin);
-      var _loc5_ = Math.ceil(_loc2_.yMax - _loc2_.yMin);
+      // Pad the buffer. Sized to the shadow's exact bounds there was nowhere for
+      // the light to spread, so the pool ended in a straight line along the
+      // bitmap edge and read as a flat slab rather than a glow.
+      var _loc4_ = Math.ceil(_loc2_.xMax - _loc2_.xMin) + 48;
+      var _loc5_ = Math.ceil(_loc2_.yMax - _loc2_.yMin) + 48;
       if(_loc4_ < 1 || _loc5_ < 1)
       {
          return undefined;
       }
       var _loc8_ = new flash.display.BitmapData(_loc4_,_loc5_,true,0);
       var _loc3_ = new flash.geom.Matrix();
-      _loc3_.translate(- _loc2_.xMin,- _loc2_.yMin);
-      _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
+      _loc3_.translate(24 - _loc2_.xMin,24 - _loc2_.yMin);
+      // Draw the glow SHRUNK and tucked up under the car, not at the shadow's
+      // full size. The shadow is a ground shadow - it deliberately spreads well
+      // past the bodywork - so colouring all of it produced a puddle sitting
+      // behind and below the car instead of light coming from under it. Scaling
+      // to 70% x 45% about the shadow's own centre, then lifting it, leaves a
+      // core that hugs the sills and rear valance the way the Beast's art does.
+      var _loc10_ = new flash.geom.Matrix();
+      _loc10_.translate(- _loc2_.xMin,- _loc2_.yMin);
+      _loc10_.scale(0.7,0.45);
+      _loc10_.translate(24 + (_loc4_ - 48) * 0.15,24 + (_loc5_ - 48) * 0.2);
+      _loc8_.draw(_loc7_,_loc10_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
       // Put the shadow back UNDER the glow. Colouring the silhouette alone
       // replaced the shadow rather than adding to it, so a lit car had no dark
       // contact patch and floated - obvious on a light-coloured body, and the
@@ -690,14 +703,22 @@ class classes.CarConstruction
       // where the shadow was opaque (directly under the car) and barely touches
       // the faint outer edge, so the colour survives as a spill around a dark
       // core. That is how the Beast's own art is drawn.
+      // Blur the colour BEFORE the shadow goes on. Underglow is light thrown onto
+      // tarmac, and a hard-edged silhouette at full saturation reads as a painted
+      // slab instead - which is exactly what it looked like. Blurring only the
+      // coloured layer keeps the spill soft while the shadow that follows stays
+      // crisp, so the car still looks planted rather than smeared.
+      _loc8_.applyFilter(_loc8_,_loc8_.rectangle,new flash.geom.Point(0,0),new flash.filters.BlurFilter(13,13,2));
       // 0.62 was far too heavy - it buried the colour and the glow came out dark
       // and dull. 0.28 is enough to put a contact patch back under the car
       // without eating the light.
       _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,0.28,0,0,0,0));
       var _loc9_ = _loc7_.createEmptyMovieClip("glow",_loc7_.getNextHighestDepth());
       _loc9_.attachBitmap(_loc8_,1,"auto",true);
-      _loc9_._x = _loc2_.xMin;
-      _loc9_._y = _loc2_.yMin;
+      // Back off by the padding added above, so the blurred spill lands where the
+      // shadow actually is instead of 24px down and right of it.
+      _loc9_._x = _loc2_.xMin - 24;
+      _loc9_._y = _loc2_.yMin - 24;
    }
    // Track-view wheels are live clips on top of the snapshot, not inside it, so
    // nothing replaces their transform and a plain tint is enough.
