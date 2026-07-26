@@ -17,7 +17,6 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
-   static var bdFlake;
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -277,27 +276,14 @@ class classes.CarConstruction
       false;
       false;
    }
-   // One sparkle tile shared by every part of every car: sparse opaque white
-   // specks on transparent. Built by thresholding greyscale noise so only the
-   // top few percent of pixels survive - that sparseness is what reads as flake
-   // rather than as grain. Built once, on first use.
-   function flakeBitmap()
-   {
-      if(classes.CarConstruction.bdFlake == undefined)
-      {
-         var _loc2_ = new flash.display.BitmapData(64,64,false,0);
-         _loc2_.noise(9871,0,255,7,true);
-         var _loc3_ = new flash.display.BitmapData(64,64,true,0);
-         _loc3_.threshold(_loc2_,new flash.geom.Rectangle(0,0,64,64),new flash.geom.Point(0,0),">",4293980400,4294967295,4294967295,false);
-         _loc2_.dispose();
-         classes.CarConstruction.bdFlake = _loc3_;
-      }
-      return classes.CarConstruction.bdFlake;
-   }
-   // Tiles that sparkle over the part and masks it to the panel with another
-   // duplicate of paint, the same trick initPart uses for shad and hi. Screen
-   // blended so the specks only ever lighten. Costs nothing per frame because
-   // Drawing.snapshotCar flattens the whole car to a BitmapData afterwards.
+   // Sparkle, clipped to the panel in PIXELS rather than with setMask.
+   //
+   // setMask cannot work here at all: what the player sees is not these clips but
+   // the flattened bitmap Drawing.snapshotCar builds with BitmapData.draw(), and
+   // draw() does not honour a setMask clip. The mask applied on screen and was
+   // then discarded by the snapshot, so sparkle covered the background no matter
+   // how the blend modes and wrappers were arranged. Baking the panel's alpha
+   // into the pixels puts the clipping somewhere draw() has no say over.
    function setPartFlake(target, useFlake)
    {
       target.flakeHolder.removeMovieClip();
@@ -306,27 +292,39 @@ class classes.CarConstruction
       {
          return undefined;
       }
-      // The blend mode goes on a wrapper, never on the masked clip itself: a
-      // blendMode forces a clip into its own rendering context and defeats
-      // setMask, which is why the first attempt sparkled over the background.
-      var _loc5_ = target.createEmptyMovieClip("flakeHolder",target.getNextHighestDepth());
-      _loc5_.blendMode = "screen";
-      _loc5_._alpha = 38;
-      // paint's bounds, not the part's: the part clip is larger than its painted
-      // area, so its bounds overspill even when the mask does apply.
       var _loc2_ = target.paint.getBounds(target);
-      var _loc4_ = _loc5_.createEmptyMovieClip("fill",1);
-      _loc4_.beginBitmapFill(this.flakeBitmap(),null,true,false);
-      _loc4_.moveTo(_loc2_.xMin,_loc2_.yMin);
-      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMin);
-      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMax);
-      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMax);
-      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMin);
-      _loc4_.endFill();
-      // duplicateMovieClip can only produce a sibling, so the mask lives in the
-      // part while the fill lives in the wrapper. setMask works across parents.
-      var _loc3_ = target.paint.duplicateMovieClip("flakeMask",target.getNextHighestDepth());
-      _loc4_.setMask(_loc3_);
+      var _loc9_ = Math.ceil(_loc2_.xMax - _loc2_.xMin);
+      var _loc8_ = Math.ceil(_loc2_.yMax - _loc2_.yMin);
+      if(_loc9_ < 2 || _loc8_ < 2 || _loc9_ > 1400 || _loc8_ > 1400)
+      {
+         return undefined;
+      }
+      // The panel's own alpha coverage. Only its alpha channel is used, so the
+      // car colour baked in by Color(paint) does not matter.
+      var _loc5_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      var _loc7_ = new flash.geom.Matrix();
+      _loc7_.scale(target.paint._xscale / 100,target.paint._yscale / 100);
+      _loc7_.translate(target.paint._x - _loc2_.xMin,target.paint._y - _loc2_.yMin);
+      _loc5_.draw(target.paint,_loc7_);
+      // Sparse opaque specks at panel size. Seeding off the size keeps adjacent
+      // panels from showing the same pattern.
+      var _loc6_ = new flash.display.BitmapData(_loc9_,_loc8_,false,0);
+      _loc6_.noise(9871 + _loc9_ + _loc8_,0,255,7,true);
+      var _loc4_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      _loc4_.threshold(_loc6_,_loc6_.rectangle,new flash.geom.Point(0,0),">",4293980400,4294967295,4294967295,false);
+      // alphaBitmapData multiplies the specks by the panel's alpha, so anything
+      // outside the panel ends up fully transparent.
+      var _loc3_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      _loc3_.copyPixels(_loc4_,_loc4_.rectangle,new flash.geom.Point(0,0),_loc5_,new flash.geom.Point(0,0),false);
+      _loc6_.dispose();
+      _loc4_.dispose();
+      _loc5_.dispose();
+      var _loc10_ = target.createEmptyMovieClip("flakeHolder",target.getNextHighestDepth());
+      _loc10_._x = _loc2_.xMin;
+      _loc10_._y = _loc2_.yMin;
+      _loc10_.blendMode = "screen";
+      _loc10_._alpha = 38;
+      _loc10_.attachBitmap(_loc3_,1,"auto",true);
       // Keep trim, badges and light housings above the sparkle.
       target.noPaint.swapDepths(target.getNextHighestDepth());
    }

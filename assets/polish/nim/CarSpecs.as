@@ -71,7 +71,6 @@ class classes.CarSpecs
                continue;
             }
             _loc4_ = classes.CarSpecs.getName(Number(carXML.firstChild.childNodes[_loc2_].attributes.ci));
-            trace("paramName: " + _loc4_);
             if(_loc4_)
             {
                this.modSpec(_loc4_ + "ID",Number(carXML.firstChild.childNodes[_loc2_].attributes.di));
@@ -140,7 +139,6 @@ class classes.CarSpecs
             }
          }
          this.decalArr.sortOn("order");
-         trace("sorting... ");
          this.setWheelAndTireScales();
       }
    }
