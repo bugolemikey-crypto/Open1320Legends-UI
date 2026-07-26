@@ -340,7 +340,10 @@ class classes.CarConstruction
    {
       return new flash.filters.ColorMatrixFilter([1,0,0,0,v,0,1,0,0,v,0,0,1,0,v,0,0,0,1,0]);
    }
-   function candyFilter(c)
+   // Base colour normalised so its brightest channel is 1, i.e. hue and relative
+   // saturation without lightness. Black paint has no hue to read, so it falls
+   // back to neutral rather than dividing by zero. Shared by candy and pearl.
+   function normClr(c)
    {
       var _loc5_ = (c >> 16 & 255) / 255;
       var _loc4_ = (c >> 8 & 255) / 255;
@@ -356,16 +359,30 @@ class classes.CarConstruction
       }
       if(_loc2_ <= 0)
       {
-         _loc5_ = 1;
-         _loc4_ = 1;
-         _loc3_ = 1;
+         return [1,1,1];
       }
-      else
-      {
-         _loc5_ = 0.38 + 0.62 * (_loc5_ / _loc2_);
-         _loc4_ = 0.38 + 0.62 * (_loc4_ / _loc2_);
-         _loc3_ = 0.38 + 0.62 * (_loc3_ / _loc2_);
-      }
+      return [_loc5_ / _loc2_,_loc4_ / _loc2_,_loc3_ / _loc2_];
+   }
+   // Pearl travels to a DIFFERENT hue than the base - that hue shift is the whole
+   // effect, and tinting toward the base hue instead would just be candy. Rotate
+   // the normalised channels one place, keep the result pale so the shimmer stays
+   // pearly rather than coloured, and BROADEN the highlight (gain below 1 with a
+   // positive offset) so it spreads into the mid-tones and lifts the dark areas
+   // into a milky sheen. Candy does the exact opposite and crushes them out.
+   function pearlFilter(c)
+   {
+      var _loc2_ = this.normClr(c);
+      var _loc5_ = 0.72 + 0.28 * _loc2_[2];
+      var _loc4_ = 0.72 + 0.28 * _loc2_[0];
+      var _loc3_ = 0.72 + 0.28 * _loc2_[1];
+      return new flash.filters.ColorMatrixFilter([0.75 * _loc5_,0,0,0,45 * _loc5_,0,0.75 * _loc4_,0,0,45 * _loc4_,0,0,0.75 * _loc3_,0,45 * _loc3_,0,0,0,1,0]);
+   }
+   function candyFilter(c)
+   {
+      var _loc2_ = this.normClr(c);
+      var _loc5_ = 0.38 + 0.62 * _loc2_[0];
+      var _loc4_ = 0.38 + 0.62 * _loc2_[1];
+      var _loc3_ = 0.38 + 0.62 * _loc2_[2];
       // Contrast is folded into the same matrix. fltrHi has already flattened
       // every channel to luminance L, so each row reads only its own channel:
       // out = tint * (2.3L - 150). Everything below L~65 clamps to black, which
@@ -408,6 +425,13 @@ class classes.CarConstruction
          target.hi._alpha = 100;
          target.hi.filters = [target.fltrHi,this.candyFilter(target.clr.getRGB())];
          _loc2_.push(this.liftFilter(-14));
+      }
+      else if(fin == 5)
+      {
+         // Lighter shad than gloss, not deeper: pearl reads milky, not saturated.
+         target.hi._alpha = 78;
+         target.hi.filters = [target.fltrHi,this.pearlFilter(target.clr.getRGB())];
+         _loc2_.push(this.liftFilter(10));
       }
       target.shad.filters = _loc2_;
    }
