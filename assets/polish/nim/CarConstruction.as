@@ -292,26 +292,32 @@ class classes.CarConstruction
       {
          return undefined;
       }
-      var _loc2_ = target.paint.getBounds(target);
+      var _loc2_ = target.hi.getBounds(target);
       var _loc9_ = Math.ceil(_loc2_.xMax - _loc2_.xMin);
       var _loc8_ = Math.ceil(_loc2_.yMax - _loc2_.yMin);
       if(_loc9_ < 2 || _loc8_ < 2 || _loc9_ > 1400 || _loc8_ > 1400)
       {
          return undefined;
       }
-      // The panel's own alpha coverage. Only its alpha channel is used, so the
-      // car colour baked in by Color(paint) does not matter.
+      // Drawn from hi, not paint. initPart duplicates shad and hi BEFORE applying
+      // Color(paint), so paint is a flat tint carrying no shading while hi keeps
+      // the art's detail - and hi has the same panel shape either way.
       var _loc5_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
       var _loc7_ = new flash.geom.Matrix();
-      _loc7_.scale(target.paint._xscale / 100,target.paint._yscale / 100);
-      _loc7_.translate(target.paint._x - _loc2_.xMin,target.paint._y - _loc2_.yMin);
-      _loc5_.draw(target.paint,_loc7_);
+      _loc7_.scale(target.hi._xscale / 100,target.hi._yscale / 100);
+      _loc7_.translate(target.hi._x - _loc2_.xMin,target.hi._y - _loc2_.yMin);
+      _loc5_.draw(target.hi,_loc7_);
+      // Move the blue channel into alpha, the same luminance proxy fltrHi uses.
+      // Alpha then carries brightness AND coverage at once, so the sparkle
+      // concentrates where light falls and still clips to the panel: outside it
+      // both blue and alpha are already 0. Uniform density read as spatter.
+      _loc5_.copyChannel(_loc5_,_loc5_.rectangle,new flash.geom.Point(0,0),4,8);
       // Sparse opaque specks at panel size. Seeding off the size keeps adjacent
       // panels from showing the same pattern.
       var _loc6_ = new flash.display.BitmapData(_loc9_,_loc8_,false,0);
       _loc6_.noise(9871 + _loc9_ + _loc8_,0,255,7,true);
       var _loc4_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
-      _loc4_.threshold(_loc6_,_loc6_.rectangle,new flash.geom.Point(0,0),">",4293980400,4294967295,4294967295,false);
+      _loc4_.threshold(_loc6_,_loc6_.rectangle,new flash.geom.Point(0,0),">",4294506744,4294967295,4294967295,false);
       // alphaBitmapData multiplies the specks by the panel's alpha, so anything
       // outside the panel ends up fully transparent.
       var _loc3_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
@@ -323,7 +329,9 @@ class classes.CarConstruction
       _loc10_._x = _loc2_.xMin;
       _loc10_._y = _loc2_.yMin;
       _loc10_.blendMode = "screen";
-      _loc10_._alpha = 38;
+      // Raised from 38 to offset the luminance modulation, which dims the sparkle
+      // everywhere the panel is not brightly lit.
+      _loc10_._alpha = 60;
       _loc10_.attachBitmap(_loc3_,1,"auto",true);
       // Keep trim, badges and light housings above the sparkle.
       target.noPaint.swapDepths(target.getNextHighestDepth());
