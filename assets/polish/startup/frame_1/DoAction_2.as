@@ -1,0 +1,16 @@
+_global.releaseNumber = "0.0.1";
+var splashPre = "PUBLIC BETA ";
+var splashText = splashPre + _global.releaseNumber;
+trace("here we go");
+fscommand("fullscreen",true);
+fscommand("allowscale",true);
+Stage.scaleMode = "showAll";
+Stage.align = "";
+_focusrect = false;
+this.createEmptyMovieClip("sx",this.getNextHighestDepth());
+sx.createEmptyMovieClip("boo",sx.getNextHighestDepth());
+sx.createEmptyMovieClip("cheer",sx.getNextHighestDepth());
+sx.boo.snd = new Sound(sx.boo);
+sx.boo.snd.attachSound("boo");
+sx.cheer.snd = new Sound(sx.cheer);
+sx.cheer.snd.attachSound("cheer");
