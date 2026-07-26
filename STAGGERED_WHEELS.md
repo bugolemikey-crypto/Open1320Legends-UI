@@ -42,6 +42,24 @@ wheels: ps="15|17"   15" front, 17" rear
   deliberately out of scope here. (The race view at `Drawing.as:1474-1475`
   already reads `wheelFID`/`wheelRID` separately, so it is half-wired for it.)
 
+## Seeing it without touching the catalog
+
+With stock catalog data the client renders exactly as it did before — that is
+the whole point of the fallback, but it does mean a fresh build shows no visible
+change. For eyeballing it there is a preview override in the **paint shop**,
+below the finish picker: a single row that cycles **Stagger: Stock → Mild →
+Drag** and redraws the car.
+
+It lives beside the finish picker because that column is already recompiled;
+adding a control to the tyre shop would mean a new `-replace` pass on a 273-line
+script, which the remaining byte budget will not currently buy.
+
+Scope is identical to the paint finishes: keyed by account car id, session
+scoped, never sent to the server, nothing persisted. Preset `Stock` is a true
+no-op, so a genuinely staggered `ps` from the catalog passes through untouched.
+The presets take the **front** down (2" mild, 4" drag) and push the rear tyre
+out, leaving the rear on whatever size the part actually granted.
+
 ## How it works
 
 The renderer was always built for this — `tireFracR`, `wheelFracR` and a

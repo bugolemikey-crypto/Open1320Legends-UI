@@ -61,7 +61,11 @@ function drawFinishPicker()
    finishPicker._x = btnSpecific._x;
    finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish");
+   // Index 5 is the stagger preview toggle rather than a finish. It rides this
+   // loop, highlightFinish and setFinish's redraw instead of bringing its own
+   // attachMovie/label/redraw trio - the byte budget would not buy a second set
+   // (the standalone version came in 330 bytes over the embedded allocation).
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Stagger: drag");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)
@@ -72,7 +76,15 @@ function drawFinishPicker()
       _loc3_.txt = _loc4_[_loc2_];
       _loc3_.onRelease = function()
       {
-         setFinish(this.finishID);
+         if(this.finishID != 5)
+         {
+            setFinish(this.finishID);
+         }
+         else
+         {
+            classes.CarSpecs.staggerMap[accountCarID] = !classes.CarSpecs.staggerMap[accountCarID];
+            setFinish(selectedFinish);
+         }
       };
       finishBtnArray.push(_loc3_);
       _loc2_ = _loc2_ + 1;
@@ -94,7 +106,8 @@ function highlightFinish()
    var _loc1_ = 0;
    while(_loc1_ < finishBtnArray.length)
    {
-      if(_loc1_ == selectedFinish)
+      // selectedFinish is only ever 0-4, so row 5 lights from the stagger flag.
+      if(_loc1_ == selectedFinish || _loc1_ == 5 && classes.CarSpecs.staggerMap[accountCarID])
       {
          finishBtnArray[_loc1_].fld.setTextFormat(tfInit);
       }

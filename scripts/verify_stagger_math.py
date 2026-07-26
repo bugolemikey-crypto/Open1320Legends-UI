@@ -75,7 +75,7 @@ def axle_spec(ps, index: int) -> float:
     return as2_number(token)
 
 
-def new_specs(tire_ps, wheel_ps):
+def new_specs(tire_ps, wheel_ps, preset: int = 0):
     tire_scale_factor = tire_scale_factor_r = 1.1
     wheel_size = wheel_size_r = 16
     if tire_ps is not None and len(str(tire_ps)):
@@ -84,6 +84,12 @@ def new_specs(tire_ps, wheel_ps):
     if truthy(axle_spec(wheel_ps, 0)):
         wheel_size = max(14, min(20, axle_spec(wheel_ps, 0)))
         wheel_size_r = max(14, min(20, axle_spec(wheel_ps, 1)))
+    # The paint-shop preview override, inlined into setWheelAndTireScales. Off
+    # is a no-op, which is what keeps the 780-combination equivalence honest.
+    if preset:
+        wheel_size_r = wheel_size
+        wheel_size = max(14, wheel_size_r - 4)
+        tire_scale_factor_r = 1.45
     wheel_scale = 70 + (wheel_size - 14) * 24 / 6
     tire_scale = min(100, wheel_scale * tire_scale_factor)
     wheel_scale_r = 70 + (wheel_size_r - 14) * 24 / 6
@@ -172,6 +178,28 @@ def main() -> int:
     if staggered[1] >= staggered[3]:
         print("FAIL staggered rear is not larger than the front")
         failures += 1
+
+    # The paint-shop preview toggle, on an ordinary 17" car with stock tyres.
+    print()
+    for preset, name in [(0, "off"), (1, "drag")]:
+        nw, nt, nwr, ntr = new_specs("10", "17", preset)
+        print(
+            f"stagger {name:4} -> front tire {nt:6.2f} rear tire {ntr:6.2f} | "
+            f"front wheel {nw:5.1f} rear wheel {nwr:5.1f}"
+        )
+        if not preset and (nt, nw) != (ntr, nwr):
+            print("FAIL stagger off is not a no-op")
+            failures += 1
+        if preset and nt >= ntr:
+            print("FAIL stagger on does not stage the rear above the front")
+            failures += 1
+
+    # Off must be a no-op for every stock catalog value, not just the 17" car.
+    for tire_ps in TIRE_PS:
+        for wheel_ps in WHEEL_PS:
+            if new_specs(tire_ps, wheel_ps, 0) != new_specs(tire_ps, wheel_ps):
+                print(f"FAIL stagger off diverges: {tire_ps!r}/{wheel_ps!r}")
+                failures += 1
 
     return 1 if failures else 0
 

@@ -22,6 +22,9 @@ class classes.CarSpecs
    var tireScaleFactorR;
    var wheelScaleR;
    var wheelSizeR;
+   var acctCarID;
+   // Account car id -> stagger preset (1 mild, 2 drag). Session only.
+   static var staggerMap = new Object();
    function CarSpecs(pClr)
    {
       if(pClr)
@@ -100,7 +103,6 @@ class classes.CarSpecs
                continue;
             }
             _loc4_ = classes.CarSpecs.getName(Number(carXML.firstChild.childNodes[_loc2_].attributes.ci));
-            trace("paramName: " + _loc4_);
             if(_loc4_)
             {
                this.modSpec(_loc4_ + "ID",Number(carXML.firstChild.childNodes[_loc2_].attributes.di));
@@ -176,12 +178,25 @@ class classes.CarSpecs
             }
          }
          this.decalArr.sortOn("order");
-         trace("sorting... ");
          this.setWheelAndTireScales();
       }
    }
    function setWheelAndTireScales()
    {
+      // Preview override, so a staggered set can be seen before the catalog
+      // carries one. Keyed by account car id and session scoped exactly like the
+      // paint finishes - the server never sees it and nothing is persisted. Off
+      // is a true no-op, so a genuinely staggered `ps` passes through untouched.
+      // Inlined rather than given its own method purely to fit the byte budget.
+      if(classes.CarSpecs.staggerMap[this.acctCarID])
+      {
+         // Drop the front below the rear and push the rear tyre out - the same
+         // shape a "15|17" catalog ps produces. The rear keeps whatever size the
+         // part actually granted, so this only ever takes the front down.
+         this.wheelSizeR = this.wheelSize;
+         this.wheelSize = Math.max(14,this.wheelSizeR - 4);
+         this.tireScaleFactorR = 1.45;
+      }
       this.wheelScale = 70 + (this.wheelSize - 14) * 24 / 6;
       this.tireScale = Math.min(100,this.wheelScale * this.tireScaleFactor);
       this.wheelScaleR = 70 + (this.wheelSizeR - 14) * 24 / 6;
