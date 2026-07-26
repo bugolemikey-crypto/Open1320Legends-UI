@@ -17,7 +17,7 @@ class classes.CarConstruction
    // finish follows the car into the garage, viewer and race instead. Session
    // scoped - the server never sees it, see setColors.
    static var finishMap = new Object();
-   static var bdFlake;
+   static var finishSO;
    function CarConstruction(mc, pBackView)
    {
       this.__MC = mc;
@@ -281,48 +281,63 @@ class classes.CarConstruction
       false;
       false;
    }
-   // One sparkle tile shared by every part of every car: sparse opaque white
-   // specks on transparent. Built by thresholding greyscale noise so only the
-   // top few percent of pixels survive - that sparseness is what reads as flake
-   // rather than as grain. Built once, on first use.
-   function flakeBitmap()
-   {
-      if(classes.CarConstruction.bdFlake == undefined)
-      {
-         var _loc2_ = new flash.display.BitmapData(64,64,false,0);
-         _loc2_.noise(9871,0,255,7,true);
-         var _loc3_ = new flash.display.BitmapData(64,64,true,0);
-         _loc3_.threshold(_loc2_,new flash.geom.Rectangle(0,0,64,64),new flash.geom.Point(0,0),">",4293980400,4294967295,4294967295,false);
-         _loc2_.dispose();
-         classes.CarConstruction.bdFlake = _loc3_;
-      }
-      return classes.CarConstruction.bdFlake;
-   }
-   // Tiles that sparkle over the part and masks it to the panel with another
-   // duplicate of paint, the same trick initPart uses for shad and hi. Screen
-   // blended so the specks only ever lighten. Costs nothing per frame because
-   // Drawing.snapshotCar flattens the whole car to a BitmapData afterwards.
+   // Sparkle, clipped to the panel in PIXELS rather than with setMask.
+   //
+   // setMask cannot work here at all: what the player sees is not these clips but
+   // the flattened bitmap Drawing.snapshotCar builds with BitmapData.draw(), and
+   // draw() does not honour a setMask clip. The mask applied on screen and was
+   // then discarded by the snapshot, so sparkle covered the background no matter
+   // how the blend modes and wrappers were arranged. Baking the panel's alpha
+   // into the pixels puts the clipping somewhere draw() has no say over.
    function setPartFlake(target, useFlake)
    {
-      target.flake.removeMovieClip();
+      target.flakeHolder.removeMovieClip();
       target.flakeMask.removeMovieClip();
       if(!useFlake)
       {
          return undefined;
       }
-      var _loc2_ = target.getBounds(target);
-      var _loc4_ = target.createEmptyMovieClip("flake",target.getNextHighestDepth());
-      _loc4_.beginBitmapFill(this.flakeBitmap(),null,true,false);
-      _loc4_.moveTo(_loc2_.xMin,_loc2_.yMin);
-      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMin);
-      _loc4_.lineTo(_loc2_.xMax,_loc2_.yMax);
-      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMax);
-      _loc4_.lineTo(_loc2_.xMin,_loc2_.yMin);
-      _loc4_.endFill();
-      _loc4_.blendMode = "screen";
-      _loc4_._alpha = 38;
-      var _loc3_ = target.paint.duplicateMovieClip("flakeMask",target.getNextHighestDepth());
-      _loc4_.setMask(_loc3_);
+      var _loc2_ = target.hi.getBounds(target);
+      var _loc9_ = Math.ceil(_loc2_.xMax - _loc2_.xMin);
+      var _loc8_ = Math.ceil(_loc2_.yMax - _loc2_.yMin);
+      if(_loc9_ < 2 || _loc8_ < 2 || _loc9_ > 1400 || _loc8_ > 1400)
+      {
+         return undefined;
+      }
+      // Drawn from hi, not paint. initPart duplicates shad and hi BEFORE applying
+      // Color(paint), so paint is a flat tint carrying no shading while hi keeps
+      // the art's detail - and hi has the same panel shape either way.
+      var _loc5_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      var _loc7_ = new flash.geom.Matrix();
+      _loc7_.scale(target.hi._xscale / 100,target.hi._yscale / 100);
+      _loc7_.translate(target.hi._x - _loc2_.xMin,target.hi._y - _loc2_.yMin);
+      _loc5_.draw(target.hi,_loc7_);
+      // Move the blue channel into alpha, the same luminance proxy fltrHi uses.
+      // Alpha then carries brightness AND coverage at once, so the sparkle
+      // concentrates where light falls and still clips to the panel: outside it
+      // both blue and alpha are already 0. Uniform density read as spatter.
+      _loc5_.copyChannel(_loc5_,_loc5_.rectangle,new flash.geom.Point(0,0),4,8);
+      // Sparse opaque specks at panel size. Seeding off the size keeps adjacent
+      // panels from showing the same pattern.
+      var _loc6_ = new flash.display.BitmapData(_loc9_,_loc8_,false,0);
+      _loc6_.noise(9871 + _loc9_ + _loc8_,0,255,7,true);
+      var _loc4_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      _loc4_.threshold(_loc6_,_loc6_.rectangle,new flash.geom.Point(0,0),">",4294506744,4294967295,4294967295,false);
+      // alphaBitmapData multiplies the specks by the panel's alpha, so anything
+      // outside the panel ends up fully transparent.
+      var _loc3_ = new flash.display.BitmapData(_loc9_,_loc8_,true,0);
+      _loc3_.copyPixels(_loc4_,_loc4_.rectangle,new flash.geom.Point(0,0),_loc5_,new flash.geom.Point(0,0),false);
+      _loc6_.dispose();
+      _loc4_.dispose();
+      _loc5_.dispose();
+      var _loc10_ = target.createEmptyMovieClip("flakeHolder",target.getNextHighestDepth());
+      _loc10_._x = _loc2_.xMin;
+      _loc10_._y = _loc2_.yMin;
+      _loc10_.blendMode = "screen";
+      // Raised from 38 to offset the luminance modulation, which dims the sparkle
+      // everywhere the panel is not brightly lit.
+      _loc10_._alpha = 60;
+      _loc10_.attachBitmap(_loc3_,1,"auto",true);
       // Keep trim, badges and light housings above the sparkle.
       target.noPaint.swapDepths(target.getNextHighestDepth());
    }
@@ -330,7 +345,10 @@ class classes.CarConstruction
    {
       return new flash.filters.ColorMatrixFilter([1,0,0,0,v,0,1,0,0,v,0,0,1,0,v,0,0,0,1,0]);
    }
-   function candyFilter(c)
+   // Base colour normalised so its brightest channel is 1, i.e. hue and relative
+   // saturation without lightness. Black paint has no hue to read, so it falls
+   // back to neutral rather than dividing by zero. Shared by candy and pearl.
+   function normClr(c)
    {
       var _loc5_ = (c >> 16 & 255) / 255;
       var _loc4_ = (c >> 8 & 255) / 255;
@@ -346,16 +364,30 @@ class classes.CarConstruction
       }
       if(_loc2_ <= 0)
       {
-         _loc5_ = 1;
-         _loc4_ = 1;
-         _loc3_ = 1;
+         return [1,1,1];
       }
-      else
-      {
-         _loc5_ = 0.38 + 0.62 * (_loc5_ / _loc2_);
-         _loc4_ = 0.38 + 0.62 * (_loc4_ / _loc2_);
-         _loc3_ = 0.38 + 0.62 * (_loc3_ / _loc2_);
-      }
+      return [_loc5_ / _loc2_,_loc4_ / _loc2_,_loc3_ / _loc2_];
+   }
+   // Pearl travels to a DIFFERENT hue than the base - that hue shift is the whole
+   // effect, and tinting toward the base hue instead would just be candy. Rotate
+   // the normalised channels one place, keep the result pale so the shimmer stays
+   // pearly rather than coloured, and BROADEN the highlight (gain below 1 with a
+   // positive offset) so it spreads into the mid-tones and lifts the dark areas
+   // into a milky sheen. Candy does the exact opposite and crushes them out.
+   function pearlFilter(c)
+   {
+      var _loc2_ = this.normClr(c);
+      var _loc5_ = 0.72 + 0.28 * _loc2_[2];
+      var _loc4_ = 0.72 + 0.28 * _loc2_[0];
+      var _loc3_ = 0.72 + 0.28 * _loc2_[1];
+      return new flash.filters.ColorMatrixFilter([0.75 * _loc5_,0,0,0,45 * _loc5_,0,0.75 * _loc4_,0,0,45 * _loc4_,0,0,0.75 * _loc3_,0,45 * _loc3_,0,0,0,1,0]);
+   }
+   function candyFilter(c)
+   {
+      var _loc2_ = this.normClr(c);
+      var _loc5_ = 0.38 + 0.62 * _loc2_[0];
+      var _loc4_ = 0.38 + 0.62 * _loc2_[1];
+      var _loc3_ = 0.38 + 0.62 * _loc2_[2];
       // Contrast is folded into the same matrix. fltrHi has already flattened
       // every channel to luminance L, so each row reads only its own channel:
       // out = tint * (2.3L - 150). Everything below L~65 clamps to black, which
@@ -399,17 +431,81 @@ class classes.CarConstruction
          target.hi.filters = [target.fltrHi,this.candyFilter(target.clr.getRGB())];
          _loc2_.push(this.liftFilter(-14));
       }
+      else if(fin == 5)
+      {
+         // Lighter shad than gloss, not deeper: pearl reads milky, not saturated.
+         target.hi._alpha = 78;
+         target.hi.filters = [target.fltrHi,this.pearlFilter(target.clr.getRGB())];
+         _loc2_.push(this.liftFilter(10));
+      }
       target.shad.filters = _loc2_;
+   }
+   // Finishes persist LOCALLY. The server rejects an 8-character cc with "illegal
+   // action" (tried 2026-07-26), so the high byte of cc is not available and a
+   // finish can be neither stored server-side nor shown to other players.
+   //
+   // Resolved on first use rather than at startup: a failure here degrades to a
+   // plain in-memory map, whereas anything on the startup path can kill the
+   // client. `false` records "tried and failed" so a blocked store is not retried
+   // on every car draw.
+   static function finishStore()
+   {
+      if(classes.CarConstruction.finishSO == undefined)
+      {
+         // Claim "tried and failed" BEFORE the call, not after. The previous
+         // order left finishSO undefined if getLocal threw or never returned, so
+         // the next car draw re-entered it, and the next - one bad call became a
+         // permanent hang instead of a one-off. This client shipped that way on
+         // 2026-07-26 and stuck at the cache update: startup reads cache/cd.txt,
+         // calls getStarterShowroom, and the showroom's first car draw lands
+         // here before anyone has logged in.
+         classes.CarConstruction.finishSO = false;
+         try
+         {
+            var _loc1_ = SharedObject.getLocal("nittoFinish");
+            if(_loc1_)
+            {
+               if(_loc1_.data.m == undefined)
+               {
+                  _loc1_.data.m = new Object();
+               }
+               classes.CarConstruction.finishMap = _loc1_.data.m;
+               classes.CarConstruction.finishSO = _loc1_;
+            }
+         }
+         catch(e)
+         {
+            // Local storage unavailable in this projector - keep the in-memory
+            // map. Finishes then last the session instead of surviving a restart,
+            // which is the documented fallback rather than a failure.
+         }
+      }
+      return classes.CarConstruction.finishMap;
+   }
+   static function setCarFinish(carID, fin)
+   {
+      classes.CarConstruction.finishStore()[carID] = fin;
+      if(classes.CarConstruction.finishSO)
+      {
+         classes.CarConstruction.finishSO.flush();
+      }
    }
    function setFinishes(fin, carID)
    {
-      // The high byte of cc wins if the server ever carries one; otherwise fall
-      // back to the local per-car map. setPartColor masks with 0xFFFFFF, so an
-      // 8-character cc can never corrupt the hue either way.
-      var _loc3_ = fin;
+      // The session map wins over the high byte of cc, so switching finishes in
+      // the paint shop re-renders even though cloneXML's cc already carries a
+      // prefix from the last pick. cc is the fallback and is how a finish
+      // survives a reload. setPartColor masks with 0xFFFFFF, so an 8-character
+      // cc can never corrupt the hue either way.
+      // Second guard on the same startup hazard: never touch local storage for a
+      // car that has no account car id. The pre-login starter showroom draws
+      // catalog cars whose node carries no `i`, so acctCarID is NaN - those now
+      // resolve from cc alone and never reach SharedObject at all. By the time a
+      // real garage car is drawn, login has long since completed.
+      var _loc3_ = !carID ? 0 : Number(classes.CarConstruction.finishStore()[carID]);
       if(!_loc3_)
       {
-         _loc3_ = Number(classes.CarConstruction.finishMap[carID]);
+         _loc3_ = fin;
       }
       if(!_loc3_)
       {
@@ -528,6 +624,7 @@ class classes.CarConstruction
       // every car to black - a regression on the whole game rather than a
       // feature. The cost is that pure black is unreachable, which is no loss:
       // the art is usually already dark, and 0 is what an unpainted part sends.
+      // It also means buying black deliberately RESTORES the stock wheel.
       if(!newClr || !target)
       {
          return undefined;
@@ -535,12 +632,9 @@ class classes.CarConstruction
       // A multiplying transform rather than Color.setRGB, which would flatten
       // the wheel to one solid fill and throw away the spokes' shading. The art
       // ships as silver/chrome, so scaling each channel reads as anodising and
-      // keeps every highlight the render already has.
-      var _loc2_ = target.transform.colorTransform;
-      _loc2_.redMultiplier = (newClr >> 16 & 255) / 255;
-      _loc2_.greenMultiplier = (newClr >> 8 & 255) / 255;
-      _loc2_.blueMultiplier = (newClr & 255) / 255;
-      target.transform.colorTransform = _loc2_;
+      // keeps every highlight the render already has. Built in one constructor
+      // call rather than read-modify-write purely to fit the byte budget.
+      target.transform.colorTransform = new flash.geom.ColorTransform((newClr >> 16 & 255) / 255,(newClr >> 8 & 255) / 255,(newClr & 255) / 255,1,0,0,0,0);
    }
    function garbageCollect()
    {

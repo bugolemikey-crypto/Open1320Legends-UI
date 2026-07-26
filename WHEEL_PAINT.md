@@ -29,28 +29,62 @@ solid fill and discards the spokes' shading. Scaling each channel against
 silver/chrome art reads as anodising and keeps the highlights the render already
 has.
 
-`CarSpecs.isPaintable` gains **14**, so a full respray covers the rims like any
-other paintable part. **13 (tyres) is deliberately excluded** — nothing tints
-tyre rubber, so it would only write a `cc` the renderer ignores.
+`CarSpecs.isPaintable` deliberately does **not** list 14, and must not — see
+"Why a full respray does not touch the rims" below.
 
 ## Server side
 
-The client change alone gives you whole-car respray coverage. A dedicated
-**Wheels** row in the paint shop's left menu is server data: add a
-`paintCategories` row with `i="14"` for each location you want it sold in, with
-its own price/point price. `isPaintable` is not consulted for that menu — it is
-built straight from `_global.paintCategoriesXML` — so no further client work is
-needed to make the row appear.
+Wheels are bought through a dedicated **Wheels** row, which is entirely server
+data. Two changes in `src/features/paint/paint-catalog.js`:
+
+1. `parsePaintJobs` filters every job against `PAINTABLE_PART_CATEGORY_IDS`,
+   which has no 14, so a `14~RRGGBB` job is **silently dropped** rather than
+   rejected. A wheels-only cart therefore parses to `[]` and returns `code: -1`
+   → the client's "Illegal Action" alert. Worse, a *mixed* cart succeeds, charges
+   only the surviving rows, and the client still patches the wheel `cc` locally —
+   a silent partial success that reverts on the next login. Fix by decoupling:
+   keep `PAINTABLE_PART_CATEGORY_IDS` as "what a whole-car respray clears", and
+   add a separate buyable set that includes 14 for `parsePaintJobs`.
+2. Append `[14, "Wheels"]` to `PAINTABLE_PART_CATEGORIES` so the catalog emits a
+   row for all five locations. Append, so no existing row shifts.
+
+Keep the price at the existing 350 unless you introduce a shared
+`basePriceForCategory(id)` used by both the catalog builder and
+`paintPriceForJobs` — they are independent today, so any other number makes the
+cart and the charge disagree.
+
+`getpaintcats` is only read at **login**, so every player must re-login before
+the row appears. Ship the server first: the client needs no change for the row,
+so there is never a window where it offers something the server refuses.
+
+## Why a full respray does not touch the rims
+
+The server's whole-car (`-2`) handler **clears** each paintable part's `cc` to 0
+rather than setting it to the body colour. For every normal part that is
+invisible: `setGlobalColor` paints everything in `partsArr` first, and a cleared
+`cc` fails `CarSpecs`' `cc.length > 1` gate, so the part just keeps the body
+colour.
+
+Wheels are the one part where clear and set are not equivalent, because
+`setPartColor` is a no-op on them and the tint comes solely from `setWheelColor`,
+which needs a truthy `wheelFClr`. Cleared means **chrome**, not body colour. So
+listing 14 in `isPaintable` would make the client show resprayed rims that the
+server never persisted, reverting at the next `getallcars`. Only "neither side
+includes 14" is consistent.
 
 ## Two things to look at in game
 
-**Black wheels are unreachable, on purpose.** The tint is gated on a *truthy*
-colour, not a defined one. If the server persists an unpainted wheel node's `cc`
-as `"000000"`, an "is it defined" gate would multiply every wheel on every car to
-black — a game-wide regression rather than a feature. Zero is also exactly what
-an unpainted part sends (`installCartPart` writes `cc = 0`). The cost is that
-pure black cannot be selected; the art is usually already dark, so this is close
-to free.
+**Black wheels are unreachable, on purpose — and buying black is the undo.** The
+tint is gated on a *truthy* colour, not a defined one. If the server persists an
+unpainted wheel node's `cc` as `"000000"`, an "is it defined" gate would multiply
+every wheel on every car to black — a game-wide regression rather than a feature.
+Zero is also exactly what an unpainted part sends (`installCartPart` writes
+`cc = 0`).
+
+The useful side effect: `000000` is a valid palette colour and passes server
+validation, so **buying black restores the stock chrome wheel**. That is the
+player-facing undo, but from the outside it looks like a bug — worth a line in
+the shop copy if you ever add one.
 
 **Thumbnails vs the garage.** `BitmapData.draw()` ignores the source clip's own
 colour transform unless it is passed one — which is why `drawTireMap` hands it an

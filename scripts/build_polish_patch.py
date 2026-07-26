@@ -106,7 +106,14 @@ BUDGETED = {
     # Home 'Activate your Purchase' panel (2231, was 12,214B) + its Activate
     # button (2234, was 1,910B), recoloured orange->dark carbon. See
     # prepare_activate_panel.py. Kept JPEG3 at original dims.
-    2231: (HOME_PREPARED / "activate_panel_2231.png", 12_200),
+    # Squeezed to the floor at the user's direction (2026-07-26). 900 was asked
+    # for and is unreachable: a DefineBitsJPEG3 body is JPEG + a zlib alpha
+    # channel, and this panel's alpha is a fixed 3,966 bytes at every quality, so
+    # the tag cannot go below ~4,840 however hard the JPEG is crushed. 5,000 lands
+    # at the bottom of that range (quality ~1-5, visibly blocky) and frees ~6.6KB
+    # against the 11,662 it used to take. 6_000 is the same saving minus ~1KB and
+    # looks far better; 12_200 restores the original.
+    2231: (HOME_PREPARED / "activate_panel_2231.png", 5_000),
     2234: (HOME_PREPARED / "activate_button_2234.png", 1_900),
     # Home city-map background, regraded to graphite. Budgeted a touch under the
     # original 89,524-byte tag so the swap frees rather than costs bytes.

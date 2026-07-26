@@ -44,7 +44,7 @@ function drawFinishPicker()
    finishPicker.removeMovieClip();
    // Show whatever finish this car already carries rather than resetting it, now
    // that the finish is keyed per car instead of being one global override.
-   selectedFinish = Number(classes.CarConstruction.finishMap[accountCarID]);
+   selectedFinish = Number(classes.CarConstruction.finishStore()[accountCarID]);
    if(!selectedFinish)
    {
       selectedFinish = 0;
@@ -61,7 +61,7 @@ function drawFinishPicker()
    finishPicker._x = btnSpecific._x;
    finishPicker._y = btnSpecific._y + 26;
    finishBtnArray = new Array();
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish");
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)
@@ -82,7 +82,7 @@ function drawFinishPicker()
 function setFinish(fin)
 {
    selectedFinish = fin;
-   classes.CarConstruction.finishMap[accountCarID] = fin;
+   classes.CarConstruction.setCarFinish(accountCarID,fin);
    highlightFinish();
    classes.Drawing.clearThisCarsBmps(carHolder);
    classes.Drawing.carView(carHolder,cloneXML,100,!isBack ? "front" : "back");
@@ -243,6 +243,11 @@ function isPartCategoryInstalled(xml, pid)
 }
 function addToCart(clr)
 {
+   // Do NOT prefix a finish onto clr here. Tried 2026-07-26: sending an
+   // 8-character cc ("05" + "C1121F") makes the server reject the purchase with
+   // "illegal action" - it validates the colour string, so the high byte of cc is
+   // not a usable channel and finishes cannot be server-persisted or made visible
+   // to other players this way. checkOut must keep sending six characters.
    var _loc3_;
    var _loc5_;
    var _loc1_;

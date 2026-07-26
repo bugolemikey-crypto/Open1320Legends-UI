@@ -71,7 +71,6 @@ class classes.CarSpecs
                continue;
             }
             _loc4_ = classes.CarSpecs.getName(Number(carXML.firstChild.childNodes[_loc2_].attributes.ci));
-            trace("paramName: " + _loc4_);
             if(_loc4_)
             {
                this.modSpec(_loc4_ + "ID",Number(carXML.firstChild.childNodes[_loc2_].attributes.di));
@@ -140,7 +139,6 @@ class classes.CarSpecs
             }
          }
          this.decalArr.sortOn("order");
-         trace("sorting... ");
          this.setWheelAndTireScales();
       }
    }
@@ -179,13 +177,22 @@ class classes.CarSpecs
    }
    static function isPaintable(partCatID)
    {
-      // 14 (wheels) added: a full respray now covers the rims like every other
-      // paintable part. Only affects the whole-car branch of the shop's
-      // paintCar - a dedicated Wheels row in the menu comes from the server's
-      // paintCategories, which isPaintable is not consulted for. 13 (tyres) is
-      // deliberately NOT here: nothing tints tyre rubber, and adding it would
-      // only write a cc the renderer ignores.
-      var _loc2_ = new Array(14,65,68,71,72,73,74,75,76,77,128,129,130,140,141,142,143,144,174);
+      // 14 (wheels) is deliberately ABSENT, and must stay absent.
+      //
+      // This list only drives the whole-car (-2) branch. The server's -2 handler
+      // CLEARS each paintable part's cc to 0 rather than setting it to the body
+      // colour. For every normal part those are indistinguishable: setGlobalColor
+      // paints everything in partsArr first, and a cleared cc fails CarSpecs'
+      // `cc.length > 1` gate so the part simply keeps the body colour.
+      //
+      // Wheels are the one part where they differ. setPartColor is a no-op on a
+      // wheel (no `actual` wrapper - see CarConstruction.setColors), so the tint
+      // comes solely from setWheelColor, which needs a truthy wheelFClr. Cleared
+      // therefore means chrome, not body colour. Listing 14 here would have the
+      // client show resprayed rims the server never persisted, reverting at the
+      // next getallcars. A dedicated Wheels row is unaffected - it takes the
+      // generic per-category path, and isPaintable is not consulted for the menu.
+      var _loc2_ = new Array(65,68,71,72,73,74,75,76,77,128,129,130,140,141,142,143,144,174);
       var _loc3_ = false;
       var _loc1_ = 0;
       while(_loc1_ < _loc2_.length)
