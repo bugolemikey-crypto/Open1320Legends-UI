@@ -300,14 +300,22 @@ class classes.CarConstruction
    // Drawing.snapshotCar flattens the whole car to a BitmapData afterwards.
    function setPartFlake(target, useFlake)
    {
-      target.flake.removeMovieClip();
+      target.flakeHolder.removeMovieClip();
       target.flakeMask.removeMovieClip();
       if(!useFlake)
       {
          return undefined;
       }
-      var _loc2_ = target.getBounds(target);
-      var _loc4_ = target.createEmptyMovieClip("flake",target.getNextHighestDepth());
+      // The blend mode goes on a wrapper, never on the masked clip itself: a
+      // blendMode forces a clip into its own rendering context and defeats
+      // setMask, which is why the first attempt sparkled over the background.
+      var _loc5_ = target.createEmptyMovieClip("flakeHolder",target.getNextHighestDepth());
+      _loc5_.blendMode = "screen";
+      _loc5_._alpha = 38;
+      // paint's bounds, not the part's: the part clip is larger than its painted
+      // area, so its bounds overspill even when the mask does apply.
+      var _loc2_ = target.paint.getBounds(target);
+      var _loc4_ = _loc5_.createEmptyMovieClip("fill",1);
       _loc4_.beginBitmapFill(this.flakeBitmap(),null,true,false);
       _loc4_.moveTo(_loc2_.xMin,_loc2_.yMin);
       _loc4_.lineTo(_loc2_.xMax,_loc2_.yMin);
@@ -315,8 +323,8 @@ class classes.CarConstruction
       _loc4_.lineTo(_loc2_.xMin,_loc2_.yMax);
       _loc4_.lineTo(_loc2_.xMin,_loc2_.yMin);
       _loc4_.endFill();
-      _loc4_.blendMode = "screen";
-      _loc4_._alpha = 38;
+      // duplicateMovieClip can only produce a sibling, so the mask lives in the
+      // part while the fill lives in the wrapper. setMask works across parents.
       var _loc3_ = target.paint.duplicateMovieClip("flakeMask",target.getNextHighestDepth());
       _loc4_.setMask(_loc3_);
       // Keep trim, badges and light housings above the sparkle.
