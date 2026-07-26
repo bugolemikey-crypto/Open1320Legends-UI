@@ -21,6 +21,9 @@ class classes.CarConstruction
    // the track view's wheels take a plain tint, not the baked overlay the
    // pattern lives in. A legibility test, not a shipped feature.
    static var camoMap = new Object();
+   // Account car id -> underglow colour (absent/0 = off). Session only.
+   static var glowMap = new Object();
+   static var glowColors = new Array(0,16719904,2154751,4259136,12599295,16755370);
    static var finishSO;
    function CarConstruction(mc, pBackView)
    {
@@ -625,6 +628,7 @@ class classes.CarConstruction
       var _loc4_ = this.__MC._parent.carBody;
       this.setLiveWheelColor(_loc4_.wheelF,cs.wheelFClr);
       this.setLiveWheelColor(_loc4_.wheelR,cs.wheelRClr);
+      this.setUnderglow(cs.acctCarID);
       this.setFinishes(cs.globalClr >>> 24,cs.acctCarID);
    }
    // Pure multiply, no offset - and the offset is not coming back.
@@ -642,6 +646,50 @@ class classes.CarConstruction
    static function wheelTint(newClr)
    {
       return new flash.geom.ColorTransform((newClr >> 16 & 255) / 255,(newClr >> 8 & 255) / 255,(newClr & 255) / 255,1,0,0,0,0);
+   }
+   // Underglow. The Mustang Beast has had one since it shipped and it was never
+   // a feature - its shadow.swf was simply drawn as a red pool instead of a black
+   // blob (50KB against a typical 12KB). Every car loads the same `shadow` slot,
+   // and nothing has ever tinted it, so the effect generalises to all 305 of them
+   // from one function.
+   //
+   // Unlike the wheels this WANTS the offset that broke them. A shadow is a black
+   // silhouette whose shape lives entirely in its alpha channel, so zeroing the
+   // multipliers and pushing the colour in as offset turns it into a coloured
+   // pool in the car's own ground shape, soft edges intact. A multiply would
+   // leave it black, since black times anything is black.
+   //
+   // Baked for the same reason as the wheel tint: snapshotCar's very first call
+   // is addToSnapshot(carLoadin.shadow), which passes an identity ColorTransform
+   // and would discard a transform set on the clip.
+   function setUnderglow(carID)
+   {
+      var _loc7_ = this.__MC.shadow;
+      if(!_loc7_)
+      {
+         return undefined;
+      }
+      _loc7_.glow.removeMovieClip();
+      var _loc6_ = classes.CarConstruction.glowMap[carID];
+      if(!_loc6_)
+      {
+         return undefined;
+      }
+      var _loc2_ = _loc7_.getBounds(_loc7_);
+      var _loc4_ = Math.ceil(_loc2_.xMax - _loc2_.xMin);
+      var _loc5_ = Math.ceil(_loc2_.yMax - _loc2_.yMin);
+      if(_loc4_ < 1 || _loc5_ < 1)
+      {
+         return undefined;
+      }
+      var _loc8_ = new flash.display.BitmapData(_loc4_,_loc5_,true,0);
+      var _loc3_ = new flash.geom.Matrix();
+      _loc3_.translate(- _loc2_.xMin,- _loc2_.yMin);
+      _loc8_.draw(_loc7_,_loc3_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
+      var _loc9_ = _loc7_.createEmptyMovieClip("glow",_loc7_.getNextHighestDepth());
+      _loc9_.attachBitmap(_loc8_,1,"auto",true);
+      _loc9_._x = _loc2_.xMin;
+      _loc9_._y = _loc2_.yMin;
    }
    // Track-view wheels are live clips on top of the snapshot, not inside it, so
    // nothing replaces their transform and a plain tint is enough.

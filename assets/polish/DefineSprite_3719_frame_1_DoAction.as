@@ -64,7 +64,7 @@ function drawFinishPicker()
    // Index 6 is the rim camo test, not a finish. It rides this loop,
    // highlightFinish and setFinish's redraw rather than bringing its own
    // attachMovie/label/redraw trio - a second set does not fit the budget.
-   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Rim camo");
+   var _loc4_ = new Array("Gloss finish","Matte finish","Satin finish","Candy finish","Flake finish","Pearl finish","Rim camo","Underglow");
    var _loc2_ = 0;
    var _loc3_;
    while(_loc2_ < _loc4_.length)
@@ -75,13 +75,28 @@ function drawFinishPicker()
       _loc3_.txt = _loc4_[_loc2_];
       _loc3_.onRelease = function()
       {
-         if(this.finishID != 6)
+         if(this.finishID < 6)
          {
             setFinish(this.finishID);
          }
          else
          {
-            classes.CarConstruction.camoMap[accountCarID] = !classes.CarConstruction.camoMap[accountCarID];
+            if(this.finishID == 6)
+            {
+               classes.CarConstruction.camoMap[accountCarID] = !classes.CarConstruction.camoMap[accountCarID];
+            }
+            else
+            {
+               // Cycle the colour rather than toggling, so the row doubles as the
+               // colour picker without spending a second row of a menu that is
+               // already taller than its panel.
+               glowStep = !glowStep ? 1 : glowStep + 1;
+               if(glowStep >= classes.CarConstruction.glowColors.length)
+               {
+                  glowStep = 0;
+               }
+               classes.CarConstruction.glowMap[accountCarID] = classes.CarConstruction.glowColors[glowStep];
+            }
             setFinish(selectedFinish);
          }
       };
@@ -106,7 +121,7 @@ function highlightFinish()
    while(_loc1_ < finishBtnArray.length)
    {
       // selectedFinish is only ever 0-5, so row 6 lights from the camo flag.
-      if(_loc1_ == selectedFinish || _loc1_ == 6 && classes.CarConstruction.camoMap[accountCarID])
+      if(_loc1_ == selectedFinish || _loc1_ == 6 && classes.CarConstruction.camoMap[accountCarID] || _loc1_ == 7 && classes.CarConstruction.glowMap[accountCarID])
       {
          finishBtnArray[_loc1_].fld.setTextFormat(tfInit);
       }
