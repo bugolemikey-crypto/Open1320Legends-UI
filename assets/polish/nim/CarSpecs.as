@@ -179,7 +179,13 @@ class classes.CarSpecs
    }
    static function isPaintable(partCatID)
    {
-      var _loc2_ = new Array(65,68,71,72,73,74,75,76,77,128,129,130,140,141,142,143,144,174);
+      // 14 (wheels) added: a full respray now covers the rims like every other
+      // paintable part. Only affects the whole-car branch of the shop's
+      // paintCar - a dedicated Wheels row in the menu comes from the server's
+      // paintCategories, which isPaintable is not consulted for. 13 (tyres) is
+      // deliberately NOT here: nothing tints tyre rubber, and adding it would
+      // only write a cc the renderer ignores.
+      var _loc2_ = new Array(14,65,68,71,72,73,74,75,76,77,128,129,130,140,141,142,143,144,174);
       var _loc3_ = false;
       var _loc1_ = 0;
       while(_loc1_ < _loc2_.length)

@@ -159,7 +159,11 @@ class classes.CarConstruction
       _loc2_.d = this.wheelFrac;
       _loc2_.tx = _loc4_.x * (1 - _loc2_.a);
       _loc2_.ty = _loc4_.y * (1 - _loc2_.d);
-      _loc3_.draw(this.__MC.wheelF,_loc2_);
+      // Pass the wheel's own colour transform: draw() ignores the source clip's
+      // transform unless handed one (which is why drawTireMap passes an explicit
+      // identity), so without this the tint would show in the garage but vanish
+      // from every baked thumbnail.
+      _loc3_.draw(this.__MC.wheelF,_loc2_,this.__MC.wheelF.transform.colorTransform);
       this.__MC.brake._x = this.__MC.wheelF._x - (1 - this.wheelFrac) * 10;
       this.__MC.brake._y = this.__MC.wheelF._y - (1 - this.wheelFrac) * 6;
       this.__MC.bdTireFront.dispose();
@@ -197,7 +201,7 @@ class classes.CarConstruction
       _loc2_.d = this.wheelFracR;
       _loc2_.tx = _loc4_.x * (1 - _loc2_.a);
       _loc2_.ty = _loc4_.y * (1 - _loc2_.d);
-      _loc3_.draw(this.__MC.wheelR,_loc2_);
+      _loc3_.draw(this.__MC.wheelR,_loc2_,this.__MC.wheelR.transform.colorTransform);
       this.__MC.bdTireRear.dispose();
       this.__MC.bdTireRear = new flash.display.BitmapData(145,149,true,0);
       this.__MC.bdTireRear.copyPixels(_loc3_,_loc3_.rectangle,new flash.geom.Point(0,0),this.bdTireMap,new flash.geom.Point(this.__MC.tireR._x,this.__MC.tireR._y));
@@ -507,7 +511,36 @@ class classes.CarConstruction
             }
          }
       }
+      // Wheels have never actually taken a colour. They are in partsArr, and
+      // CarSpecs has carried wheelFClr/wheelRClr all along, but Drawing's
+      // onLoadInit excludes wheelF/wheelR from the `actual` rename every other
+      // part gets - so init() skips them, and setPartColor's first line
+      // (target = target.actual) makes the whole function a silent no-op on a
+      // wheel. Tint the clip itself instead.
+      this.setWheelColor(this.__MC.wheelF,cs.wheelFClr);
+      this.setWheelColor(this.__MC.wheelR,cs.wheelRClr);
       this.setFinishes(cs.globalClr >>> 24,cs.acctCarID);
+   }
+   function setWheelColor(target, newClr)
+   {
+      // Gated on a truthy colour, not on "defined". A server that persists the
+      // wheel node's cc as "000000" would otherwise multiply every wheel on
+      // every car to black - a regression on the whole game rather than a
+      // feature. The cost is that pure black is unreachable, which is no loss:
+      // the art is usually already dark, and 0 is what an unpainted part sends.
+      if(!newClr || !target)
+      {
+         return undefined;
+      }
+      // A multiplying transform rather than Color.setRGB, which would flatten
+      // the wheel to one solid fill and throw away the spokes' shading. The art
+      // ships as silver/chrome, so scaling each channel reads as anodising and
+      // keeps every highlight the render already has.
+      var _loc2_ = target.transform.colorTransform;
+      _loc2_.redMultiplier = (newClr >> 16 & 255) / 255;
+      _loc2_.greenMultiplier = (newClr >> 8 & 255) / 255;
+      _loc2_.blueMultiplier = (newClr & 255) / 255;
+      target.transform.colorTransform = _loc2_;
    }
    function garbageCollect()
    {
