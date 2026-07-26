@@ -118,7 +118,7 @@ function drawFinishPicker()
             {
                glowStep = 0;
             }
-            classes.CarConstruction.glowMap[accountCarID] = classes.CarConstruction.glowColors[glowStep];
+            classes.CarConstruction.setCarGlow(accountCarID,classes.CarConstruction.glowColors[glowStep]);
             setFinish(selectedFinish);
          }
       };

@@ -470,6 +470,14 @@ class classes.CarConstruction
                }
                classes.CarConstruction.finishMap = _loc1_.data.m;
                classes.CarConstruction.finishSO = _loc1_;
+               // Underglow rides the same store as the finishes. It was memory
+               // only, so it vanished on every client restart - which reads as
+               // "the glow stopped working" rather than "state was not saved".
+               if(_loc1_.data.g == undefined)
+               {
+                  _loc1_.data.g = new Object();
+               }
+               classes.CarConstruction.glowMap = _loc1_.data.g;
             }
          }
          catch(e)
@@ -480,6 +488,15 @@ class classes.CarConstruction
          }
       }
       return classes.CarConstruction.finishMap;
+   }
+   static function setCarGlow(carID, clr)
+   {
+      classes.CarConstruction.finishStore();
+      classes.CarConstruction.glowMap[carID] = clr;
+      if(classes.CarConstruction.finishSO)
+      {
+         classes.CarConstruction.finishSO.flush();
+      }
    }
    static function setCarFinish(carID, fin)
    {
@@ -666,6 +683,12 @@ class classes.CarConstruction
          return undefined;
       }
       _loc7_.glow.removeMovieClip();
+      // Same startup gate as setFinishes: a car with no account id is a
+      // pre-login showroom car, and must never touch local storage.
+      if(carID)
+      {
+         classes.CarConstruction.finishStore();
+      }
       var _loc6_ = classes.CarConstruction.glowMap[carID];
       if(!_loc6_)
       {
@@ -692,8 +715,15 @@ class classes.CarConstruction
       // core that hugs the sills and rear valance the way the Beast's art does.
       var _loc10_ = new flash.geom.Matrix();
       _loc10_.translate(- _loc2_.xMin,- _loc2_.yMin);
-      _loc10_.scale(0.7,0.45);
-      _loc10_.translate(24 + (_loc4_ - 48) * 0.15,24 + (_loc5_ - 48) * 0.2);
+      // Barely shrunk, and NOT lifted. Two earlier attempts (0.7 x 0.45, then
+      // 0.86 x 0.64 with a lift) pulled the glow inside the car's own footprint.
+      // That still showed in the rear 3/4, where the shadow extends out behind
+      // the bumper, but in the front 3/4 the body covers nearly the whole shadow
+      // and the glow disappeared completely - it was under the car, not around
+      // it. The blur and the shadow pass are what stop it reading as a flat
+      // puddle; the size does not need to.
+      _loc10_.scale(0.97,0.88);
+      _loc10_.translate(24 + (_loc4_ - 48) * 0.015,24 + (_loc5_ - 48) * 0.07);
       _loc8_.draw(_loc7_,_loc10_,new flash.geom.ColorTransform(0,0,0,1,_loc6_ >> 16 & 255,_loc6_ >> 8 & 255,_loc6_ & 255,0));
       // Put the shadow back UNDER the glow. Colouring the silhouette alone
       // replaced the shadow rather than adding to it, so a lit car had no dark
@@ -771,12 +801,18 @@ class classes.CarConstruction
       var _loc5_ = new flash.display.BitmapData(_loc7_,_loc8_,true,0);
       var _loc4_ = new flash.geom.Matrix();
       _loc4_.translate(- _loc6_.xMin,- _loc6_.yMin);
+      // Plain multiply across the whole rim, deliberately.
+      //
+      // A luminance-thresholded mask was tried, to keep the brake rotor and the
+      // gaps behind the spokes neutral - those are dark GREY rather than black,
+      // so multiply tints them slightly. It made things worse: a hard threshold
+      // over the rim's own shading gives a binary split, and the rims came out
+      // visibly blotchy and mottled. The cure was worse than the complaint.
+      //
+      // Softening that mask with a blur would probably work, but plain multiply
+      // is known to look right - it is what shipped in the clean teal screenshots
+      // - so this stays until there is a reason to spend another iteration on it.
       _loc5_.draw(target,_loc4_,classes.CarConstruction.wheelTint(newClr));
-      // Camo, multiplied over the already-tinted rim so the spokes keep their
-      // shading and the patches come out as two depths of the chosen colour
-      // rather than flat paint. Generated at an eighth scale and drawn back up
-      // with smoothing: noise at pixel scale is television static, and a rim is
-      // only ~60px on screen, so the blobs have to be coarse to read at all.
       var _loc3_ = target.createEmptyMovieClip("tint",target.getNextHighestDepth());
       _loc3_.attachBitmap(_loc5_,1,"auto",true);
       _loc3_._x = _loc6_.xMin;
