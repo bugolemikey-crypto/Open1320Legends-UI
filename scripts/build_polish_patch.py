@@ -71,6 +71,12 @@ HOME_PREPARED = ROOT / "assets" / "home" / "prepared"
 LOGIN_ACTION = ROOT / "assets" / "polish" / "DefineSprite_2002_frame_1_DoAction.as"
 PAINT_SHOP_ACTION = (ROOT / "assets" / "polish"
                      / "DefineSprite_3719_frame_1_DoAction.as")
+# The home screen's purchase-activation panel (sprite 2242). Its code entry was
+# styled exactly like the label beside it, so nothing marked it as typeable -
+# and with 2231 blanked it has no panel art behind it either. That sprite has a
+# single DoAction, so unlike the paint shop it is addressable by -replace.
+ACTIVATE_ACTION = (ROOT / "assets" / "polish"
+                   / "DefineSprite_2242_frame_1_DoAction.as")
 STARTUP_SCRIPTS = ROOT / "assets" / "polish" / "startup"
 # classes.Console is edited as separate files under assets/polish/nim/console/
 # (see nim_console_parts) and concatenated into one class at build time, because
@@ -341,7 +347,10 @@ def main() -> None:
         shopped = temp / "polish-shopped.swf"
         run([ffdec, "-replace", str(specced), str(shopped),
              "\\DefineSprite_3719\\frame_1\\DoAction", str(PAINT_SHOP_ACTION)])
-        run([ffdec, "-replace", str(shopped), str(art),
+        activated = temp / "polish-activated.swf"
+        run([ffdec, "-replace", str(shopped), str(activated),
+             "\\DefineSprite_2242\\frame_1\\DoAction", str(ACTIVATE_ACTION)])
+        run([ffdec, "-replace", str(activated), str(art),
              "1925", str(LOGIN_PREPARED / "login_bitmap_850x650.jpg"), "jpeg3",
              # The three console buttons. These were only ever replaced by the
              # older build_deployable_login.py, so every regeneration of them in
