@@ -32,18 +32,32 @@ The LED replacements keep the hue right through the lens instead of blowing out
 white, hold a crisp rim so the bulb still reads as a lens, and let the *alpha
 alone* carry the bloom over a flat, saturated RGB field.
 
-Byte budget
------------
+Byte budget, and the one rule you must not break
+------------------------------------------------
 Each target is a DefineBitsJPEG3 body:
 
     UI16 character id | UI32 alphaDataOffset | JPEG bytes | zlib alpha bytes
 
-`swf_theme_lib.encode_to_budget` pads the JPEG with zeros after its FFD9 EOI
-marker, which decoders ignore, so the alpha stream still ends exactly on the
-tag boundary and every tag length is preserved. That is what keeps
-`verify_byte_neutral.py` happy and the SWF inside its fixed embedded
-allocation -- growing it makes the Director projector fail at startup, and
-re-emitting as CWS silently breaks avatar upload.
+**The original alpha block is reused verbatim and `alphaDataOffset` is left
+exactly where it was.** Only the JPEG bytes are swapped, padded with zeros
+after their FFD9 EOI marker to refill the original JPEG field exactly.
+
+This is not fussiness. A first attempt re-encoded the alpha as well and moved
+`alphaDataOffset` to match; every tag length still checked out and the payload
+still inflated correctly offline, but in game the player ignored the alpha
+entirely and drew each bulb as a flat opaque 86x86 rectangle -- a solid orange
+slab over the strip. Keep the alpha where the player expects to find it.
+
+Because the alpha is fixed, the *shape* of the glow is inherited from the
+original art (solid core to r~11, falling to nothing by r~42) and this script
+only controls colour. That is enough: the muddiness came from the RGB
+darkening toward black underneath the falloff, so keeping the bloom field
+saturated is what turns it from mud into light.
+
+Padding to the original field length also keeps every tag length identical,
+which is what `verify_byte_neutral.py` demands and what keeps the SWF inside
+its fixed embedded allocation -- growing it makes the Director projector fail
+at startup, and re-emitting as CWS silently breaks avatar upload.
 """
 from __future__ import annotations
 
@@ -84,6 +98,7 @@ BIG = dict(
     halo_tight=2.6, halo_wide=7.0, halo_near=0.40, halo_far=0.15,
     emitters=6, emitter_radius=0.56, emitter_gain=0.16,
     specular=0.42, rim_gain=0.30, fade_from=0.62, fade_to=0.95,
+    bloom_floor=0.30,
 )
 SMALL = dict(
     BIG,
@@ -91,6 +106,7 @@ SMALL = dict(
     halo_tight=1.9, halo_wide=4.2, halo_near=0.40, halo_far=0.14,
     emitters=0, emitter_gain=0.06,
     specular=0.34, rim_gain=0.22, fade_from=0.45, fade_to=0.92,
+    bloom_floor=0.28,
 )
 
 BULBS = {
@@ -122,7 +138,7 @@ def render_bulb(spec: dict) -> Image.Image:
     yy = ((gy + 0.5) / SS - 0.5) * SS
 
     rgb = np.zeros((big_h, big_w, 3), float) + bloom
-    alpha = np.zeros((big_h, big_w), float)
+    shade = np.zeros((big_h, big_w), float)   # bloom brightness ramp, per centre
 
     for cx, cy in spec["centres"]:
         cx, cy = cx * SS, cy * SS
@@ -159,26 +175,24 @@ def render_bulb(spec: dict) -> Image.Image:
         m = inside[..., None]
         rgb = rgb * (1 - m) + np.clip(body, 0, 255) * m
 
-        # chromatic bloom: alpha-only falloff, forced to zero before the plate
-        # edge or the rectangular clip shows in game as a box around each bulb
+        # Bloom brightness ramp. The *extent* of the glow is the original
+        # alpha's job; this only stops the far halo reading as a hot slab by
+        # easing the bloom colour down with distance. It stays chromatic
+        # rather than heading to black, which is what the originals got wrong.
         d_out = np.clip(r - radius, 0, None)
-        glow = (spec["halo_near"] * np.exp(-d_out / (spec["halo_tight"] * SS))
+        ramp = (spec["halo_near"] * np.exp(-d_out / (spec["halo_tight"] * SS))
                 + spec["halo_far"] * np.exp(-d_out / (spec["halo_wide"] * SS)))
-        win = np.clip((spec["fade_to"] * reach - r)
-                      / ((spec["fade_to"] - spec["fade_from"]) * reach), 0, 1)
-        win = win * win * (3 - 2 * win)
-        alpha = np.maximum(alpha, np.maximum(np.clip(glow, 0, 1) * win, inside))
+        shade = np.maximum(shade, np.clip(ramp / (spec["halo_near"] + spec["halo_far"]), 0, 1))
+        shade = np.maximum(shade, inside)
 
     def down(a):
         s = a.reshape(h, SS, w, SS) if a.ndim == 2 else a.reshape(h, SS, w, SS, 3)
         return s.mean(axis=(1, 3))
 
-    out_rgb = np.clip(down(rgb), 0, 255).astype(np.uint8)
-    out_a = np.clip(down(alpha) * 255.0, 0, 255)
-    out_a[out_a < 2] = 0        # snap the long tail: cleaner edge, compresses better
-    im = Image.fromarray(out_rgb, "RGB")
-    im.putalpha(Image.fromarray(out_a.astype(np.uint8), "L"))
-    return im
+    # ease the bloom field down to `bloom_floor` of full brightness at the rim
+    floor = spec["bloom_floor"]
+    rgb = rgb * (floor + (1.0 - floor) * shade)[..., None]
+    return Image.fromarray(np.clip(down(rgb), 0, 255).astype(np.uint8), "RGB")
 
 
 # --------------------------------------------------------------------- patch
@@ -217,25 +231,30 @@ def apply(src: Path, dst: Path, preview: Path | None = None) -> None:
         if art.size != spec["size"]:
             raise RuntimeError(f"char {cid}: rendered {art.size}, expected {spec['size']}")
 
-        alpha_z = zlib.compress(art.getchannel("A").tobytes(), 9)
-        budget = len(payload) - 6 - len(prefix) - len(alpha_z)
-        if budget <= 0:
-            raise RuntimeError(f"char {cid}: alpha alone overruns the {len(payload)} byte tag")
-
-        jpeg, quality, subsampling = encode_to_budget(art.convert("RGB"), budget)
+        # Reuse the original alpha byte-for-byte and refill the JPEG field to
+        # its original length, so alphaDataOffset is unchanged. Moving it makes
+        # the player drop the alpha and draw the bulb as an opaque slab.
+        budget = len(old_jpeg)
+        jpeg, quality, subsampling = encode_to_budget(art, budget)
         pad = len(jpeg) - len(jpeg.rstrip(b"\x00"))
 
         field = prefix + jpeg
-        new_payload = struct.pack("<HI", cid, len(field)) + field + alpha_z
+        new_payload = struct.pack("<HI", cid, len(field)) + field + old_alpha
         if len(new_payload) != len(payload):
             raise RuntimeError(f"char {cid}: {len(new_payload)} != {len(payload)}")
+        if struct.unpack_from("<I", new_payload, 2)[0] != struct.unpack_from("<I", payload, 2)[0]:
+            raise RuntimeError(f"char {cid}: alphaDataOffset moved")
+        if new_payload[6 + len(field):] != payload[6 + len(field):]:
+            raise RuntimeError(f"char {cid}: alpha block is not byte-identical")
         body[tag.payload_start:tag.payload_end] = new_payload
 
         if preview:
-            art.save(preview / f"bulb-{cid}-{spec['role'].replace('/', '-')}.png")
+            shown = art.copy()
+            shown.putalpha(Image.frombytes("L", art.size, zlib.decompress(old_alpha)))
+            shown.save(preview / f"bulb-{cid}-{spec['role'].replace('/', '-')}.png")
 
         print(f"{cid:<6}{spec['role']:<11}{len(payload):<9}"
-              f"{len(jpeg) - pad:<7}{len(alpha_z):<7}{pad:<7}{quality:<4}{subsampling}")
+              f"{len(jpeg) - pad:<7}{len(old_alpha):<7}{pad:<7}{quality:<4}{subsampling}")
 
     write_swf(dst, version, bytes(body))
     print(f"\nwrote {dst}  ({dst.stat().st_size:,} bytes)")
