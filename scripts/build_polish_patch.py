@@ -59,6 +59,15 @@ from unhide_character import unhide
 
 BASE = ROOT / "patches" / "main_client" / "main.dark-ui.current.swf"
 OUTPUT = ROOT / "patches" / "main_client" / "main.polish.swf"
+# What `deploy_patches.py` actually embeds. It resolves the main_client target
+# to `patches/<id>/main.swf` - NOT to OUTPUT - so a build that only writes
+# main.polish.swf leaves the deployer embedding whatever stale main.swf happens
+# to be sitting there, and the deploy still prints success. That has silently
+# shipped a stale client more than once (the NIM console polish, then the paint
+# finishes). Copying OUTPUT here at the end of every build is what keeps the
+# two in step; verify a deploy by hashing the exe's embedded slot against this
+# file, never by trusting the printed line alone.
+DEPLOY_SOURCE = ROOT / "patches" / "main_client" / "main.swf"
 LOGIN_PREPARED = ROOT / "assets" / "login" / "prepared"
 LOGIN_CONSOLE_OVERLAY = LOGIN_PREPARED / "login_console_overlay.png"
 HEADER_PREPARED = ROOT / "assets" / "header" / "prepared"
@@ -418,6 +427,13 @@ def main() -> None:
 
     print(f"Polish patch: {OUTPUT} ({OUTPUT.stat().st_size:,} bytes; "
           f"{target - built:,} bytes spare before padding)")
+
+    # Hand the finished payload to the deployer. See DEPLOY_SOURCE: without
+    # this the build and the deploy read different files and the exe keeps the
+    # previous client while reporting success.
+    shutil.copy2(OUTPUT, DEPLOY_SOURCE)
+    print(f"Deploy source: {DEPLOY_SOURCE} "
+          f"({DEPLOY_SOURCE.stat().st_size:,} bytes)")
 
 
 if __name__ == "__main__":
