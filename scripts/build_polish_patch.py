@@ -59,9 +59,14 @@ from unhide_character import unhide
 
 BASE = ROOT / "patches" / "main_client" / "main.dark-ui.current.swf"
 OUTPUT = ROOT / "patches" / "main_client" / "main.polish.swf"
-# deploy_patches.py embeds patches/<target-id>/main.swf, NOT our OUTPUT name, so
-# the build has to publish itself there or a deploy silently ships a stale exe
-# while still printing "Deployed embedded main.swf". That has now happened twice.
+# What `deploy_patches.py` actually embeds. It resolves the main_client target
+# to `patches/<id>/main.swf` - NOT to OUTPUT - so a build that only writes
+# main.polish.swf leaves the deployer embedding whatever stale main.swf happens
+# to be sitting there, and the deploy still prints success. That has silently
+# shipped a stale client more than once (the NIM console polish, then the paint
+# finishes). Copying OUTPUT here at the end of every build is what keeps the
+# two in step; verify a deploy by hashing the exe's embedded slot against this
+# file, never by trusting the printed line alone.
 DEPLOY_SOURCE = ROOT / "patches" / "main_client" / "main.swf"
 LOGIN_PREPARED = ROOT / "assets" / "login" / "prepared"
 LOGIN_CONSOLE_OVERLAY = LOGIN_PREPARED / "login_console_overlay.png"
@@ -72,11 +77,14 @@ LOGIN_ACTION = ROOT / "assets" / "polish" / "DefineSprite_2002_frame_1_DoAction.
 PAINT_SHOP_ACTION = (ROOT / "assets" / "polish"
                      / "DefineSprite_3719_frame_1_DoAction.as")
 # The home screen's purchase-activation panel (sprite 2242). Its code entry was
-# styled exactly like the label beside it, so nothing marked it as typeable -
-# and with 2231 blanked it has no panel art behind it either. That sprite has a
-# single DoAction, so unlike the paint shop it is addressable by -replace.
+# styled exactly like the label beside it, so nothing marked it as typeable, and
+# with 2231 blanked it has no panel art behind it either. Single DoAction on that
+# sprite, so unlike the paint shop it is addressable by -replace directly.
 ACTIVATE_ACTION = (ROOT / "assets" / "polish"
                    / "DefineSprite_2242_frame_1_DoAction.as")
+# Paint finishes, wheel paint and underglow all live in these two classes.
+CAR_CONSTRUCTION = ROOT / "assets" / "polish" / "nim" / "CarConstruction.as"
+CAR_SPECS = ROOT / "assets" / "polish" / "nim" / "CarSpecs.as"
 STARTUP_SCRIPTS = ROOT / "assets" / "polish" / "startup"
 # classes.Console is edited as separate files under assets/polish/nim/console/
 # (see nim_console_parts) and concatenated into one class at build time, because
@@ -90,16 +98,6 @@ RACE_CONTROLS = ROOT / "assets" / "polish" / "nim" / "RaceControls.as"
 # Stock one-shot AvatarUploadBox (from the working client). The base's two-step
 # variant never sends the upload POST on this projector - see the -replace note.
 AVATAR_UPLOAD = ROOT / "assets" / "polish" / "nim" / "AvatarUploadBox.as"
-# Paint finishes. classes.CarConstruction gains setPartFinish/setFinishes, which
-# reuse the existing per-part paint/shad/hi layer stack (initPart) the same way
-# the stock setPartPrimer already does - no new layers, no per-frame cost, since
-# Drawing.snapshotCar flattens the car to a BitmapData afterwards. The finish id
-# is read from the high byte of globalClr, which is 0 on every stock car, so a
-# server that truncates `cc` to six hex digits leaves every car on gloss. When it
-# does, the finish falls back to CarConstruction.finishMap, keyed by account car
-# id - which is why CarSpecs is recompiled too, purely to carry that id through.
-CAR_CONSTRUCTION = ROOT / "assets" / "polish" / "nim" / "CarConstruction.as"
-CAR_SPECS = ROOT / "assets" / "polish" / "nim" / "CarSpecs.as"
 
 # Character id -> (source art, byte budget). These go through replace_jpeg3
 # rather than FFDec because their sizes have to be searched for, not accepted.
@@ -112,21 +110,12 @@ BUDGETED = {
     # Home 'Activate your Purchase' panel (2231, was 12,214B) + its Activate
     # button (2234, was 1,910B), recoloured orange->dark carbon. See
     # prepare_activate_panel.py. Kept JPEG3 at original dims.
-    # Squeezed to the floor at the user's direction (2026-07-26). 900 was asked
-    # for and is unreachable: a DefineBitsJPEG3 body is JPEG + a zlib alpha
-    # channel, and this panel's alpha is a fixed 3,966 bytes at every quality, so
-    # the tag cannot go below ~4,840 however hard the JPEG is crushed. 5,000 lands
-    # at the bottom of that range (quality ~1-5, visibly blocky) and frees ~6.6KB
-    # against the 11,662 it used to take. 6_000 is the same saving minus ~1KB and
-    # looks far better; 12_200 restores the original.
-    # The "Activate your Purchase" panel and its button, blanked to a 1x1
-    # transparent pixel at the user's direction. Activation was pulled from the
-    # client flow (see main-no-activation.swf), so this art is vestigial and was
-    # only ever costing payload - it had already been squeezed twice to buy room
-    # for other work. A 1x1 with zero alpha is the smallest a DefineBitsJPEG3 can
-    # be: the tag is JPEG plus a LOSSLESS zlib alpha channel, and that alpha is
-    # sized by pixel count, so shrinking the image is the only real lever.
-    # Restore by pointing these back at activate_panel_2231.png / _2234.png.
+    # Blanked to a 1x1 transparent pixel: activation was pulled from the client
+    # flow, so this art is vestigial and was only costing payload. A 1x1 with zero
+    # alpha is the floor for a DefineBitsJPEG3 - the tag is JPEG plus a LOSSLESS
+    # zlib alpha sized by pixel count, so quality bottoms out (~4,840B at this
+    # panel's size) and only shrinking the image gets past it. Restore by pointing
+    # these back at activate_panel_2231.png / activate_button_2234.png.
     2231: (HOME_PREPARED / "blank_1x1.png", 400),
     2234: (HOME_PREPARED / "blank_1x1.png", 400),
     # Home city-map background, regraded to graphite. Budgeted a touch under the
@@ -149,14 +138,28 @@ LOSSLESS_TABS = {
     2014: HEADER_PREPARED / "toolbar_email_80x22.png",
 }
 
-# The Support tab completes the dock family. Its plate's shape (2023) is a
-# DefineShape2 with a [0xFFFF, bitmap] fill, which the game's old projector
-# renders as a solid red block when the bitmap is anything but the exact bytes
-# it shipped with - every re-encode reproduced the "Support red block". So the
-# three Support bitmaps are spliced in verbatim from the known-good dark-theme
-# build (CURATED-v2) rather than re-encoded: byte-identical, guaranteed clean.
+# The Support tab completes the dock family. Its plate's shape (2023) is the
+# dock's only DefineShape2, and this projector red-renders a *Lossless2* bitmap
+# under a DefineShape2 - that, not the pixels, is what produced the long-
+# standing "Support red block". The earlier reading of the bug (that any
+# re-encode reproduced it) came from re-encoding the plate the same way the
+# other three tabs are encoded, i.e. as Lossless2. Compare the two builds and
+# the rule is plain: in main.KNOWN-GOOD the tabs 2005/2011/2014 are Lossless2
+# (their shapes are plain DefineShape) while every character shape 2023 draws -
+# 2021 and 2022 - is DefineBitsJPEG3.
+#
+# So the plate can carry freshly drawn art after all, as long as it stays
+# JPEG3. It now ships the same button the other three do, at 2x and at maximum
+# quality, which costs 4,211B against the 4,386B curated tag it replaces.
+#
+# 2020 (the legacy red italic "Support" caption) and 2021 (its Discord glyph)
+# stay spliced in as the known-good *blanks* they already are: the whole
+# control - panel, glyph and label - is drawn into the plate, so those two
+# overlays must not draw anything on top of it.
+SUPPORT_PLATE = {
+    2022: (HEADER_PREPARED / "toolbar_support_113x19.png", 4_386),
+}
 CURATED_SUPPORT = {
-    2022: POLISH_PREPARED / "support_plate_2022_curated.tag",
     2020: POLISH_PREPARED / "support_text_2020_curated.tag",
     2021: POLISH_PREPARED / "support_icon_2021_curated.tag",
 }
@@ -324,26 +327,18 @@ def main() -> None:
         avatared = temp / "polish-avatared.swf"
         run([ffdec, "-replace", str(raced), str(avatared),
              "\\__Packages\\classes\\AvatarUploadBox", str(AVATAR_UPLOAD)])
-        # Paint finishes (see CAR_CONSTRUCTION). Its own -replace so a compile
-        # failure is unambiguous. CarConstruction only runs when a car is drawn,
-        # i.e. after login - unlike classes.Drawing, whose recompile has hung
-        # this client at startup before.
+        # Car cosmetics: paint finishes, wheel paint, underglow. Post-login only
+        # in effect, unlike classes.Drawing whose recompile has hung this client
+        # at startup - though note CarConstruction DOES run pre-login via the
+        # starter showroom, which is why its SharedObject access is gated.
         painted = temp / "polish-painted.swf"
         run([ffdec, "-replace", str(avatared), str(painted),
              "\\__Packages\\classes\\CarConstruction", str(CAR_CONSTRUCTION)])
-        # One added line: carry the account car id through as a spec, so the
-        # finish can be keyed per car. Same post-login risk class as
-        # CarConstruction - CarSpecs is only touched when a car is drawn.
         specced = temp / "polish-specced.swf"
         run([ffdec, "-replace", str(painted), str(specced),
              "\\__Packages\\classes\\CarSpecs", str(CAR_SPECS)])
-        # The paint shop's GLOSS/MATTE/SATIN/CANDY picker, which drives the
-        # finish through classes.CarConstruction.finishOverride. This is the
-        # named DoAction (the function definitions), addressable by -replace;
-        # the sibling DoAction_2 holding the init code is not, so the picker is
-        # built from drawSwatches() rather than from the init script. The edit
-        # also drops a debug for-in loop whose decompiled `each` identifier is
-        # FFDec-escaped and would not survive a recompile.
+        # The paint shop: finish picker, underglow row, members-only gating and
+        # the tightened category pitch that lets the Wheels row fit on the plate.
         shopped = temp / "polish-shopped.swf"
         run([ffdec, "-replace", str(specced), str(shopped),
              "\\DefineSprite_3719\\frame_1\\DoAction", str(PAINT_SHOP_ACTION)])
@@ -383,12 +378,22 @@ def main() -> None:
             size = replace_lossless2(art, character, source)
             print(f"character {character}: {size:,} bytes lossless (dock tab)")
 
-        # The Support tab's three bitmaps, spliced in byte-for-byte from the
-        # clean dark-theme build (see CURATED_SUPPORT) so its DefineShape2 plate
-        # renders without the red block. Its shape 2023 is retuned to 2x below.
+        # The Support tab's two overlay characters, spliced in byte-for-byte
+        # from the clean dark-theme build (see CURATED_SUPPORT) as the blanks
+        # they are, so nothing draws over the plate. Shape 2023 is retuned to 2x
+        # below.
         for character, tag_path in CURATED_SUPPORT.items():
             size = splice_bitmap_tag(art, character, tag_path.read_bytes())
             print(f"character {character}: {size:,} bytes spliced (curated Support)")
+
+        # The Support plate itself, now drawn in the same family as the other
+        # three tabs. JPEG3 and never Lossless2 - see SUPPORT_PLATE - because
+        # shape 2023 is a DefineShape2. Runs after the splice above so it is
+        # replacing a known tag.
+        for character, (source, budget) in SUPPORT_PLATE.items():
+            size, quality = replace_jpeg3(art, character, source, budget)
+            print(f"character {character}: {size:,} bytes at quality {quality} "
+                  f"(Support plate)")
 
         retuned = retune_bitmap_scale(art, SUPERSAMPLE, RETUNE_SHAPES)
         if len(retuned) != len(RETUNE_SHAPES):
@@ -455,13 +460,15 @@ def main() -> None:
         if built < target:
             pad_swf(OUTPUT, target)
 
-    # Publish to the path the deployer actually reads. After padding, so the
-    # deployed bytes are the ones measured above.
-    shutil.copy2(OUTPUT, DEPLOY_SOURCE)
-
     print(f"Polish patch: {OUTPUT} ({OUTPUT.stat().st_size:,} bytes; "
           f"{target - built:,} bytes spare before padding)")
-    print(f"Deploy source: {DEPLOY_SOURCE} (identical copy for deploy_patches.py)")
+
+    # Hand the finished payload to the deployer. See DEPLOY_SOURCE: without
+    # this the build and the deploy read different files and the exe keeps the
+    # previous client while reporting success.
+    shutil.copy2(OUTPUT, DEPLOY_SOURCE)
+    print(f"Deploy source: {DEPLOY_SOURCE} "
+          f"({DEPLOY_SOURCE.stat().st_size:,} bytes)")
 
 
 if __name__ == "__main__":
