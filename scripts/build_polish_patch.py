@@ -102,11 +102,18 @@ BUDGETED = {
     # NIM conversation bezel, recoloured silver->dark carbon (char 2224, was
     # 11,417B). Flat dark art compresses smaller than the busy silver original.
     2224: (ROOT / "assets" / "nim" / "prepared" / "nim_bezel_2224.png", 11_400),
-    # The 'Activate your Purchase' panel (2231) and its Activate button (2234)
-    # used to be recoloured here. The whole panel is now removed from the home
-    # screen instead (see ACTIVATE_PANEL), so replacing its art would spend
-    # ~14KB of the allocation on pixels nothing draws. The base's own bitmaps
-    # stay in the file, unreferenced by any placement.
+    # The 'Activate your Purchase' panel (2231) and its Activate button (2234).
+    # The placement is removed (see ACTIVATE_PANEL) so nothing draws these, but
+    # they are still replaced - with a 1x1 transparent pixel, not with art.
+    #
+    # Leaving them alone was tried and puts the build 6,419 bytes OVER the
+    # allocation: the base's own bitmaps are ~14KB and stay in the payload
+    # whether or not anything references them. The choice is not "replace or
+    # save 14KB", it is "replace with ~600 bytes or keep 14KB of dead pixels".
+    # Removing the placement and blanking the art are complementary: the first
+    # stops the clicks, the second reclaims the bytes. Neither is visible.
+    2231: (HOME_PREPARED / "blank_1x1.png", 400),
+    2234: (HOME_PREPARED / "blank_1x1.png", 400),
     # Home city-map background, regraded to graphite. Budgeted a touch under the
     # original 89,524-byte tag so the swap frees rather than costs bytes.
     2227: (HOME_PREPARED / "map_2227_graphite.png", 70_000),
