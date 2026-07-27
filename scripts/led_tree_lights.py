@@ -61,6 +61,7 @@ at startup, and re-emitting as CWS silently breaks avatar upload.
 """
 from __future__ import annotations
 
+import io
 import struct
 import sys
 import zlib
@@ -72,7 +73,6 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from swf_theme_lib import (  # noqa: E402
-    encode_to_budget,
     parse_tags,
     read_swf,
     split_jpeg3,
@@ -115,6 +115,39 @@ BULBS = {
     1584: dict(BIG, role="amber", lens="#FF9E00", core="#FFD95E", bloom="#FF8A00"),
     1587: dict(SMALL, role="pre/stage", lens="#FFC61A", core="#FFF0A8", bloom="#FFB000"),
 }
+
+
+def encode_exact(im: Image.Image, target: int):
+    """Encode `im` as a baseline JPEG of *exactly* `target` bytes.
+
+    Padding with zeros after FFD9 does not work here. The player finds a
+    DefineBitsJPEG3's alpha by scanning past the end-of-image marker rather
+    than trusting alphaDataOffset, so any filler between FFD9 and the zlib
+    stream makes the alpha fail to decode -- and a bulb whose alpha failed is
+    drawn as a flat opaque rectangle. Instead the slack goes *inside* the JPEG
+    as a COM comment segment, which decoders skip, leaving FFD9 as the final
+    byte exactly where the player expects it.
+    """
+    for quality in range(95, 19, -1):
+        for subsampling in (0, 1, 2):
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=quality, subsampling=subsampling,
+                    optimize=True, progressive=False)
+            raw = buf.getvalue()
+            slack = target - len(raw)
+            if slack < 0:
+                continue
+            if slack == 0:
+                out = raw
+            elif slack >= 4:            # FF FE + 2 length bytes + payload
+                com = b"\xff\xfe" + struct.pack(">H", slack - 2) + b"\x00" * (slack - 4)
+                out = raw[:2] + com + raw[2:]
+            else:
+                continue                # 1-3 bytes short: no legal segment fits
+            if len(out) != target or out[-2:] != b"\xff\xd9":
+                raise RuntimeError("padded JPEG is malformed")
+            return out, quality, subsampling, slack
+    raise RuntimeError(f"cannot encode image to exactly {target} bytes")
 
 
 def _rgb(value: str) -> np.ndarray:
@@ -234,9 +267,7 @@ def apply(src: Path, dst: Path, preview: Path | None = None) -> None:
         # Reuse the original alpha byte-for-byte and refill the JPEG field to
         # its original length, so alphaDataOffset is unchanged. Moving it makes
         # the player drop the alpha and draw the bulb as an opaque slab.
-        budget = len(old_jpeg)
-        jpeg, quality, subsampling = encode_to_budget(art, budget)
-        pad = len(jpeg) - len(jpeg.rstrip(b"\x00"))
+        jpeg, quality, subsampling, pad = encode_exact(art, len(old_jpeg))
 
         field = prefix + jpeg
         new_payload = struct.pack("<HI", cid, len(field)) + field + old_alpha
