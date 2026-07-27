@@ -42,11 +42,29 @@ PANEL_HEIGHT = 19
 # name -> (bitmap size, where the panel sits inside the bitmap, current stage
 # top of the placement). The stage tops are the shipped placements, read from
 # sprite 2093: tabNim y -560, tabEmail/tabViewer -554, tabSupport -555.
+#
+# The bitmap size must equal the painting shape's bounds. Every tab whose
+# bitmap matches its shape (2006 is 67x24, 2015 is 80x22, 2012 is 86x22) is
+# painted by a fill at translate (0,0) and lands exactly where its placement
+# says. Support's shape 2023 is 113x**20** while its legacy bitmap was 113x19,
+# and the one-pixel shortfall had been papered over with a +1y on the fill
+# matrix - which silently pushed the whole plate a pixel below the other three
+# in the running client. Support is therefore authored 20 tall, with the
+# PANEL_HEIGHT panel at inset 0 and the last row left transparent, and the
+# build zeroes that fill translate. Bitmap == bounds, translate == 0, for all
+# four.
 TABS = {
     "nim": ((67, 24), 2, 40.6),
     "email": ((80, 22), 1, 46.6),
     "viewer": ((86, 22), 1, 46.6),
-    "support": ((113, 19), 0, 45.6),
+    "support": ((113, 20), 0, 45.6),
+}
+
+# Painting shape -> the fill translate it must carry, in stage pixels. Only
+# Support's needed correcting; the rest are already zero and are listed so the
+# invariant is checked rather than assumed.
+FILL_TRANSLATES = {
+    2023: (2022, (0.0, 0.0)),
 }
 
 # Sprite 2093 depths of each tab's placement. tabSupport is placed twice - as

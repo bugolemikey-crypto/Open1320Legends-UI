@@ -214,6 +214,76 @@ def set_shape_scale(path: Path, shape_id: int, bitmap_id: int, pixels_per_bitmap
     raise RuntimeError(f"shape {shape_id} has no bitmap fill for {bitmap_id}")
 
 
+def set_fill_translate(path: Path, shape_id: int, bitmap_id: int,
+                       tx: float, ty: float) -> tuple[float, float]:
+    """Force one shape's bitmap-fill translation, in stage pixels.
+
+    A bitmap fill lands its art at the fill matrix's translation, not at the
+    shape's origin, so a non-zero translate offsets the art from where the
+    placement puts the shape. The header dock's Support plate carried a +1y
+    here - compensation for a bitmap one pixel shorter than shape 2023's
+    bounds - which pushed the whole tab a pixel below the other three. With the
+    art authored to the full bounds this has to go back to zero.
+
+    Written into the bit width already on disk, so the tag keeps its length.
+    """
+    data = bytearray(path.read_bytes())
+    original_length = len(data)
+    for code, body_start, length in iter_tags(bytes(data)):
+        if code not in DEFINE_SHAPE_TAGS or length < 2:
+            continue
+        body = memoryview(data)[body_start:body_start + length]
+        (found,) = struct.unpack_from("<H", body, 0)
+        if found != shape_id:
+            continue
+        reader = BitReader(body, 2)
+        nbits = reader.read(5)
+        for _ in range(4):
+            reader.read_signed(nbits)
+        reader.align()
+        pos = reader.byte
+        count = body[pos]
+        pos += 1
+        if count == 0xFF:
+            (count,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+        for _ in range(count):
+            fill_type = body[pos]
+            pos += 1
+            if fill_type == 0x00:
+                pos += 4 if code in (32, 83) else 3
+                continue
+            if fill_type not in (0x40, 0x41, 0x42, 0x43):
+                break
+            (found_bitmap,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+            matrix = BitReader(body, pos)
+            if matrix.read(1):
+                scale_bits = matrix.read(5)
+                matrix.read_signed(scale_bits)
+                matrix.read_signed(scale_bits)
+            if matrix.read(1):
+                skew_bits = matrix.read(5)
+                matrix.read_signed(skew_bits)
+                matrix.read_signed(skew_bits)
+            translate_bits = matrix.read(5)
+            translate_offset = matrix.offset
+            previous_x = matrix.read_signed(translate_bits)
+            previous_y = matrix.read_signed(translate_bits)
+            if found_bitmap == bitmap_id:
+                absolute = body_start * 8 + translate_offset
+                write_bits(data, absolute, translate_bits, round(tx * 20))
+                write_bits(data, absolute + translate_bits, translate_bits,
+                           round(ty * 20))
+                if len(data) != original_length:
+                    raise RuntimeError("fill translate changed the file length")
+                path.write_bytes(bytes(data))
+                return previous_x / 20, previous_y / 20
+            matrix.align()
+            pos = matrix.byte
+    raise RuntimeError(f"shape {shape_id} has no bitmap fill for {bitmap_id}")
+
+
 def retune(path: Path, divisor: int, shapes: dict[int, int] | None = None) -> list[tuple[int, int]]:
     shapes = shapes or SHAPE_BITMAPS
     data = bytearray(path.read_bytes())
