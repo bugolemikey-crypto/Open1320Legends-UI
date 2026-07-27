@@ -29,8 +29,18 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import header_layout
+from patch_bitmap_scale import BitReader, DEFINE_SHAPE_TAGS
+from patch_bitmap_scale import iter_tags as iter_shape_tags
 from replace_jpeg3 import iter_tags
 from swf_utils import ROOT
+
+# Painting shape -> the tab it draws. A bitmap does not necessarily land at its
+# shape's origin: the fill matrix carries its own translation, and Support's
+# used to hold a +1y that put the whole tab a pixel below the other three in
+# the client while this preview - which only knew about placements - happily
+# reported them aligned. The preview now reads the fill matrices out of the SWF
+# and applies them, and flags any shape whose bitmap does not match its bounds.
+TAB_SHAPES = {"support": 2023, "nim": 2006, "email": 2015, "viewer": 2012}
 
 DEFINE_BITS_JPEG3 = 35
 DEFINE_BITS_LOSSLESS2 = 36
@@ -101,6 +111,53 @@ def read_characters(swf: Path, wanted: set[int]) -> dict[int, Image.Image]:
     return found
 
 
+def read_shape_fill(data: bytes, shape_id: int) -> tuple[tuple[float, float], tuple[float, float]] | None:
+    """((height of the shape's bounds, unused), (tx, ty)) for a shape's bitmap fill."""
+    for code, body_start, length in iter_shape_tags(data):
+        if code not in DEFINE_SHAPE_TAGS or length < 2:
+            continue
+        body = memoryview(data)[body_start:body_start + length]
+        if struct.unpack_from("<H", body, 0)[0] != shape_id:
+            continue
+        reader = BitReader(body, 2)
+        nbits = reader.read(5)
+        xmin, xmax, ymin, ymax = (reader.read_signed(nbits) / 20 for _ in range(4))
+        reader.align()
+        pos = reader.byte
+        count = body[pos]
+        pos += 1
+        if count == 0xFF:
+            count, = struct.unpack_from("<H", body, pos)
+            pos += 2
+        for _ in range(count):
+            fill_type = body[pos]
+            pos += 1
+            if fill_type == 0x00:
+                pos += 4 if code in (32, 83) else 3
+                continue
+            if fill_type not in (0x40, 0x41, 0x42, 0x43):
+                break
+            bitmap_id, = struct.unpack_from("<H", body, pos)
+            pos += 2
+            matrix = BitReader(body, pos)
+            if matrix.read(1):
+                b = matrix.read(5)
+                matrix.read_signed(b)
+                matrix.read_signed(b)
+            if matrix.read(1):
+                b = matrix.read(5)
+                matrix.read_signed(b)
+                matrix.read_signed(b)
+            tb = matrix.read(5)
+            tx = matrix.read_signed(tb) / 20
+            ty = matrix.read_signed(tb) / 20
+            matrix.align()
+            pos = matrix.byte
+            if bitmap_id != 0xFFFF:
+                return (xmax - xmin, ymax - ymin), (tx, ty)
+    return None
+
+
 def render(swf: Path, scale: int = SUPERSAMPLE) -> Image.Image:
     art = read_characters(swf, {CHROME, LOGO, *TAB_CHARACTERS.values()})
 
@@ -126,12 +183,26 @@ def render(swf: Path, scale: int = SUPERSAMPLE) -> Image.Image:
         top = header_layout.PANEL_TOP - inset
         placed.append((name, x, top))
 
+    data = swf.read_bytes()
     for name, left, top in placed:
         tab = art[TAB_CHARACTERS[name]].convert("RGBA")
         (width, height), _inset, _top = header_layout.TABS[name]
+        # The fill matrix, not the placement, decides where the art lands.
+        fill = read_shape_fill(data, TAB_SHAPES[name])
+        tx = ty = 0.0
+        if fill is not None:
+            (bounds_w, bounds_h), (tx, ty) = fill
+            if (bounds_w, bounds_h) != (float(width), float(height)):
+                print(f"  WARNING {name}: bitmap {width}x{height} but shape "
+                      f"{TAB_SHAPES[name]} bounds {bounds_w:g}x{bounds_h:g} - "
+                      f"the projector will not draw these aligned")
+            if (tx, ty) != (0.0, 0.0):
+                print(f"  WARNING {name}: shape {TAB_SHAPES[name]} fill "
+                      f"translate ({tx:g}, {ty:g}) offsets the art from its "
+                      f"placement")
         tab = tab.resize((width * scale, height * scale), Image.LANCZOS)
-        canvas.alpha_composite(tab, (int(round(left * scale)),
-                                     int(round(top * scale))))
+        canvas.alpha_composite(tab, (int(round((left + tx) * scale)),
+                                     int(round((top + ty) * scale))))
 
     return canvas
 

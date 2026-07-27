@@ -35,9 +35,10 @@ from pathlib import Path
 
 from insert_console_layer import insert as insert_console_layer
 from patch_bitmap_scale import retune as retune_bitmap_scale
-from patch_bitmap_scale import set_shape_scale
+from patch_bitmap_scale import set_fill_translate, set_shape_scale
 from patch_edit_text import set_colour as set_text_colour
 from move_placement import move as move_placement
+from remove_placement import remove as remove_placement
 from prepare_deployable_login_assets import BACKGROUND_SUPERSAMPLE, SUPERSAMPLE
 from prepare_deployable_login_assets import main as prepare_login_assets
 from prepare_header_assets import LOGO_BUDGET
@@ -96,11 +97,11 @@ BUDGETED = {
     # NIM conversation bezel, recoloured silver->dark carbon (char 2224, was
     # 11,417B). Flat dark art compresses smaller than the busy silver original.
     2224: (ROOT / "assets" / "nim" / "prepared" / "nim_bezel_2224.png", 11_400),
-    # Home 'Activate your Purchase' panel (2231, was 12,214B) + its Activate
-    # button (2234, was 1,910B), recoloured orange->dark carbon. See
-    # prepare_activate_panel.py. Kept JPEG3 at original dims.
-    2231: (HOME_PREPARED / "activate_panel_2231.png", 12_200),
-    2234: (HOME_PREPARED / "activate_button_2234.png", 1_900),
+    # The 'Activate your Purchase' panel (2231) and its Activate button (2234)
+    # used to be recoloured here. The whole panel is now removed from the home
+    # screen instead (see ACTIVATE_PANEL), so replacing its art would spend
+    # ~14KB of the allocation on pixels nothing draws. The base's own bitmaps
+    # stay in the file, unreferenced by any placement.
     # Home city-map background, regraded to graphite. Budgeted a touch under the
     # original 89,524-byte tag so the swap frees rather than costs bytes.
     2227: (HOME_PREPARED / "map_2227_graphite.png", 70_000),
@@ -140,13 +141,26 @@ LOSSLESS_TABS = {
 # control - panel, glyph and label - is drawn into the plate, so those two
 # overlays must not draw anything on top of it.
 SUPPORT_PLATE = {
-    2022: (HEADER_PREPARED / "toolbar_support_113x19.png", 4_386),
+    2022: (HEADER_PREPARED / "toolbar_support_113x20.png", 4_386),
 }
 CURATED_SUPPORT = {
     2020: POLISH_PREPARED / "support_text_2020_curated.tag",
     2021: POLISH_PREPARED / "support_icon_2021_curated.tag",
 }
 BITMAP_TAG_CODES = {6, 20, 21, 35, 36, 90}
+
+# The 'Activate your Purchase' panel on the home screen: sprite 2242, holding
+# the ACTIVATION CODE field (fldPointsCode), the Activate button
+# (btnActivatePoints), a 'what are points?' button and its own frame script.
+# It is placed unnamed at depth 5 of the home section (sprite 2293), and no
+# class in the repo references any of those three instances.
+#
+# Removed at the user's request, and removed by deleting the placement rather
+# than by hiding it: a zero-alpha button in AS2 still takes clicks, so hiding
+# would leave an invisible Activate control on the screen.
+ACTIVATE_PANEL_PARENT = 2293
+ACTIVATE_PANEL_DEPTH = 5
+ACTIVATE_PANEL_CHARACTER = 2242
 
 
 def splice_bitmap_tag(path: Path, char_id: int, full_tag: bytes) -> int:
@@ -360,6 +374,14 @@ def main() -> None:
             print(f"character {character}: {size:,} bytes at quality {quality} "
                   f"(Support plate)")
 
+        # Zero Support's bitmap-fill translate. It carried +1y to cover for a
+        # bitmap a pixel shorter than shape 2023's bounds, and that pixel is
+        # exactly why the tab sat below the other three in the client. The art
+        # is now authored to the full bounds, so the compensation has to go.
+        for shape, (bitmap, (tx, ty)) in header_layout.FILL_TRANSLATES.items():
+            was = set_fill_translate(art, shape, bitmap, tx, ty)
+            print(f"Shape {shape}: fill translate {was} -> ({tx}, {ty})")
+
         retuned = retune_bitmap_scale(art, SUPERSAMPLE, RETUNE_SHAPES)
         if len(retuned) != len(RETUNE_SHAPES):
             raise RuntimeError(
@@ -405,6 +427,15 @@ def main() -> None:
         move_placement(art, header_layout.SUPPORT_SPRITE,
                        header_layout.SUPPORT_CAP_DEPTH, dx=cap)
         print(f"Dock anchor {anchor:+g}x, Support cap {cap:+g}x")
+
+        # Take the 'Activate your Purchase' panel off the home screen. Deleting
+        # the placement rather than hiding it, so the Activate button cannot be
+        # clicked while invisible. See ACTIVATE_PANEL_PARENT.
+        freed = remove_placement(art, ACTIVATE_PANEL_PARENT, ACTIVATE_PANEL_DEPTH,
+                                 ACTIVATE_PANEL_CHARACTER)
+        print(f"Removed activate panel (sprite {ACTIVATE_PANEL_CHARACTER}) from "
+              f"sprite {ACTIVATE_PANEL_PARENT} depth {ACTIVATE_PANEL_DEPTH} "
+              f"({freed:+d} bytes)")
 
         # Lift the console text off the photographic background onto its own
         # crisp lossless layer. Runs after set_shape_scale so the shape it
