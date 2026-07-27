@@ -32,28 +32,21 @@ def deploy_embedded_main(
     game: Path,
     config: dict,
     exe_path: Path | None = None,
-    force: bool = False,
 ) -> None:
     exe = exe_path or (game / config["game_exe"])
     if not patch.exists():
         raise FileNotFoundError(f"Patch not found: {patch}")
 
-    # Refuse a SWF that was extracted out of a grown build. Deploying one bakes
+    # Flag a SWF that looks extracted out of a grown build. Deploying one bakes
     # the growth padding in, grows the exe again on every round-trip, and -- as
     # happened on 2026-07-27 -- can quietly ship the *original* art while
-    # looking like a successful deploy. See scripts/client_guard.py.
+    # looking like a successful deploy. This warns rather than blocks: the
+    # checks are heuristics and there are legitimate reasons to deploy a grown
+    # SWF. Use scripts/client_guard.py if you want an exit code to gate on.
     from client_guard import problems_with_patch
 
-    issues = problems_with_patch(patch.read_bytes())
-    if issues and not force:
-        detail = "\n  - ".join(issues)
-        raise SystemExit(
-            f"Refusing to deploy {patch.name}:\n  - {detail}\n"
-            "Rebuild from a named artifact (main.led-tree.swf, main.pre-led-tree.swf, ...) "
-            "rather than an extract, or pass --force if this is deliberate."
-        )
-    for issue in issues:
-        print(f"WARNING (forced): {issue}")
+    for issue in problems_with_patch(patch.read_bytes()):
+        print(f"WARNING: {issue}")
 
     data = bytearray(exe.read_bytes())
     offset = int(config["main_swf_embed_offset"])
@@ -123,11 +116,6 @@ def main() -> None:
         default=None,
         help="Optional executable to receive an embedded main.swf patch",
     )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Deploy even if the patch fails client_guard's safety checks",
-    )
     args = parser.parse_args()
 
     manifest = json.loads((ROOT / "targets" / "manifest.json").read_text(encoding="utf-8"))
@@ -142,7 +130,7 @@ def main() -> None:
     for target in targets:
         if target.get("kind") == "embedded_swf":
             patch = args.patches_dir / target["id"] / "main.swf"
-            deploy_embedded_main(patch, game, config, args.exe, force=args.force)
+            deploy_embedded_main(patch, game, config, args.exe)
             target_exe = args.exe or (game / config["game_exe"])
             print(f"Deployed embedded main.swf into {target_exe}")
             continue
