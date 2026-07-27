@@ -95,18 +95,18 @@ DEFAULT_OUT = ROOT / "patches" / "main_client" / "main.led-tree.swf"
 # Lane 2 is placed with scale x = -1, so the art is kept radially symmetric.
 BIG = dict(
     size=(86, 86), centres=((42.2, 41.0),), radius=11.0,
-    halo_tight=2.6, halo_wide=7.0, halo_near=0.40, halo_far=0.15,
+    halo_tight=2.1, halo_wide=4.2, halo_near=0.45, halo_far=0.10,
     emitters=6, emitter_radius=0.56, emitter_gain=0.16,
     specular=0.42, rim_gain=0.30, fade_from=0.62, fade_to=0.95,
-    bloom_floor=0.30,
+    bloom_floor=0.09,
 )
 SMALL = dict(
     BIG,
     size=(54, 49), centres=((21.8, 22.5), (31.2, 22.5)), radius=4.3,
-    halo_tight=1.9, halo_wide=4.2, halo_near=0.40, halo_far=0.14,
+    halo_tight=1.6, halo_wide=3.0, halo_near=0.45, halo_far=0.10,
     emitters=0, emitter_gain=0.06,
     specular=0.34, rim_gain=0.22, fade_from=0.45, fade_to=0.92,
-    bloom_floor=0.28,
+    bloom_floor=0.08,
 )
 
 BULBS = {
