@@ -39,7 +39,7 @@ cp .env.example .env
 # edit .env: at minimum set SIDECAR_SSH_KEY to a private key that can SSH into the VPS
 ```
 
-Defaults target the known production VPS (`root@162.141.167.11`, unit `nitto-backend.service`,
+Defaults target the known production VPS (`ubuntu@15.204.114.140`, unit `nitto-backend.service`,
 matching `deploy.sh` in Open1320Legends) — override via `.env` for a different host/unit.
 
 ## Usage
@@ -105,9 +105,9 @@ All config is environment variables (see `.env.example`):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SIDECAR_SSH_HOST` | `162.141.167.11` | VPS address |
+| `SIDECAR_SSH_HOST` | `15.204.114.140` | VPS address |
 | `SIDECAR_SSH_PORT` | `22` | SSH port |
-| `SIDECAR_SSH_USER` | `root` | SSH user |
+| `SIDECAR_SSH_USER` | `ubuntu` | SSH user |
 | `SIDECAR_SSH_KEY` | `~/.ssh/id_rsa` | Private key path |
 | `SIDECAR_SSH_KEY_PASSPHRASE` | (none) | Key passphrase, if any |
 | `SIDECAR_SYSTEMD_UNIT` | `nitto-backend.service` | Unit to read via `journalctl -u` |

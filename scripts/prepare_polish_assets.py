@@ -46,11 +46,12 @@ SIZE_SUPPORT_ICON = (18, 16)     # char 2021 - blanked
 SIZE_TAB_PLATE = (37, 18)        # char 2017 - blanked
 SIZE_HELP = (21, 23)             # char 1942 - red circled "?"
 
-# Where the pieces sit inside the plate, in plate-local stage pixels. Measured
-# against the legacy render: the glyph sat at x 9..25 and the caption ran from
-# x 30, both within the plate's 548..661 span on stage.
-GLYPH_BOX = (8, 2, 26, 18)
-CAPTION_LEFT = 31
+# Where the pieces sit inside the plate, in plate-local stage pixels. The plate
+# is moved right by MOVE_SUPPORT_X in build_polish_patch.py to sit under the
+# version caption in the concept's recessed panel; the content is pushed to the
+# plate's right-hand end for the same reason, so the pair right-aligns.
+GLYPH_BOX = (42, 2, 60, 18)
+CAPTION_LEFT = 65
 CAPTION_BASELINE = 3
 CAPTION_SIZE = 10.5
 UNDERLINE_GAP = 1
