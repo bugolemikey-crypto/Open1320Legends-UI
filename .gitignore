@@ -30,3 +30,4 @@ temp_nim_validation.xml
 
 # Contact sheets rendered while investigating frame imports.
 header-*-contact-sheet.jpg
+__pycache__/

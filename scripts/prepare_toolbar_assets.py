@@ -236,7 +236,9 @@ BUILDERS = {
     "toolbar_nim_hilite_67x24.png": lambda: tab("nim", "NIM", "chat", lit=True),
     "toolbar_email_80x22.png": lambda: tab("email", "EMAIL", "mail"),
     "toolbar_viewer_86x22.png": lambda: tab("viewer", "VIEWER", "eye"),
-    "toolbar_support_113x19.png": lambda: tab("support", "SUPPORT", "discord"),
+    # 20 tall, not 19: the bitmap has to match shape 2023's bounds. See
+    # header_layout.TABS. The panel sits at inset 0 and the last row is blank.
+    "toolbar_support_113x20.png": lambda: tab("support", "SUPPORT", "discord"),
 }
 
 
