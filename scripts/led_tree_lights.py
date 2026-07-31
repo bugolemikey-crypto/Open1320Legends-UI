@@ -109,11 +109,16 @@ SMALL = dict(
     bloom_floor=0.08,
 )
 
+# All-blue variant. Amber/green/red drive real gameplay signal (still
+# counting down vs. go vs. foul), so a single flat blue would erase that --
+# instead each role gets a distinct shade/brightness of blue so the sequence
+# stays readable at a glance: dim indigo (pre-stage) -> mid cobalt (amber) ->
+# bright cyan-blue (green) -> deep saturated blue (red/foul).
 BULBS = {
-    1578: dict(BIG, role="red", lens="#FF2020", core="#FF8478", bloom="#F00A0A"),
-    1581: dict(BIG, role="green", lens="#00D95A", core="#84FFAE", bloom="#00C24E"),
-    1584: dict(BIG, role="amber", lens="#FF9E00", core="#FFD95E", bloom="#FF8A00"),
-    1587: dict(SMALL, role="pre/stage", lens="#FFC61A", core="#FFF0A8", bloom="#FFB000"),
+    1578: dict(BIG, role="red", lens="#1A2BFF", core="#7A8CFF", bloom="#0A14E0"),
+    1581: dict(BIG, role="green", lens="#22D8FF", core="#B4F5FF", bloom="#00C2F0"),
+    1584: dict(BIG, role="amber", lens="#3F6BFF", core="#9FB6FF", bloom="#2A50E8"),
+    1587: dict(SMALL, role="pre/stage", lens="#5A4CFF", core="#C4BEFF", bloom="#4436E8"),
 }
 
 
