@@ -34,8 +34,10 @@
    static var nimBuddyID = 0;
    static var nimBuddyName = "";
    static var profileCardBox;
-   static var profileCardInfo;
+   static var profileCardPanel;
    static var profileCardUID;
+   static var profileCardCars;
+   static var profileCardCarIndex;
    static var buddyDragID = 0;
    static var enteredText = "";
    function Console(target)
@@ -2581,9 +2583,9 @@
       if(classes.Console.profileCardUID == uID && classes.Console.profileCardBox)
       {
          classes.Console.profileCardBox.swapDepths(_root.getNextHighestDepth());
-         if(classes.Console.profileCardInfo)
+         if(classes.Console.profileCardPanel)
          {
-            classes.Console.profileCardInfo.swapDepths(_root.getNextHighestDepth());
+            classes.Console.profileCardPanel.swapDepths(_root.getNextHighestDepth());
          }
          return undefined;
       }
@@ -2605,6 +2607,9 @@
    {
       var _loc2_;
       var _loc3_;
+      var panel;
+      var badgeArr;
+      var i;
       if(!classes.Console.profileCardBox)
       {
          return undefined;
@@ -2613,8 +2618,6 @@
       _loc3_ = _loc2_.firstChild.firstChild;
       var uID = _loc3_.attributes.i;
       var uName = _loc3_.attributes.u;
-      var tID = Number(_loc3_.attributes.ti);
-      var tName = _loc3_.attributes.tn;
       var uCred = _loc3_.attributes.sc;
       var statsText;
       if(Number(_loc3_.attributes.w) > -1)
@@ -2626,17 +2629,101 @@
          statsText = "Rank: " + _loc3_.attributes.scr + "\nwin/loss stats available with membership";
       }
       classes.Console.profileCardBox.setValue(uName,statsText,"info");
-      if(classes.Console.profileCardInfo)
+      if(classes.Console.profileCardPanel)
       {
-         classes.Console.profileCardInfo.removeMovieClip();
+         classes.Console.profileCardPanel.removeMovieClip();
       }
-      var info = _root.attachMovie("userInfo","profileCardInfo",_root.getNextHighestDepth(),{uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(_loc3_.toString())});
-      info.cacheAsBitmap = true;
+      panel = _root.createEmptyMovieClip("profileCardPanel",_root.getNextHighestDepth());
+      panel.cacheAsBitmap = true;
+      classes.Drawing.insetBox(panel,420,230,26,1119253,592652,1381913,0);
+      classes.Drawing.portrait(panel,uID,2,16,40,2);
+      panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
+      panel.badges._x = 140;
+      panel.badges._y = 44;
+      badgeArr = new Array();
+      i = 0;
+      while(i < _loc3_.childNodes.length)
+      {
+         if(_loc3_.childNodes[i].attributes.v == "1")
+         {
+            badgeArr.push(_loc3_.childNodes[i].attributes);
+         }
+         i = i + 1;
+      }
+      classes.Badges.drawBadges(panel.badges,badgeArr,260,false);
+      panel.createEmptyMovieClip("carClip",panel.getNextHighestDepth());
+      panel.carClip._x = 330;
+      panel.carClip._y = 150;
       var boxX = classes.Console.profileCardBox._x + classes.Console.profileCardBox.contentMC._x;
       var boxY = classes.Console.profileCardBox._y + classes.Console.profileCardBox.contentMC._y;
-      info._x = boxX + (classes.Console.profileCardBox.contentMC._width - info._width) / 2;
-      info._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
-      classes.Console.profileCardInfo = info;
+      panel._x = boxX + (classes.Console.profileCardBox.contentMC._width - 420) / 2;
+      panel._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
+      classes.Console.profileCardPanel = panel;
+      classes.Console.profileCardCars = undefined;
+      classes.Console.profileCardCarIndex = 0;
+      classes.Lookup.addCallback("getOtherUserCars",classes.Console,classes.Console.CB_profileCardGetCars,String(uID));
+      _root.getOtherUserCars(uID);
+   }
+   static function CB_profileCardGetCars(txml)
+   {
+      if(!classes.Console.profileCardPanel)
+      {
+         return undefined;
+      }
+      classes.Console.profileCardCars = txml;
+      classes.Console.profileCardCarIndex = 0;
+      classes.Console.showProfileCardCar();
+   }
+   static function showProfileCardCar()
+   {
+      var panel = classes.Console.profileCardPanel;
+      var cars = classes.Console.profileCardCars;
+      if(!panel || !cars || !cars.firstChild || !cars.firstChild.childNodes.length)
+      {
+         return undefined;
+      }
+      var idx = classes.Console.profileCardCarIndex;
+      var carNode = cars.firstChild.childNodes[idx];
+      classes.Drawing.carView(panel.carClip,new XML(carNode.toString()),10);
+      if(panel.carPrev == undefined && cars.firstChild.childNodes.length > 1)
+      {
+         panel.createEmptyMovieClip("carPrev",panel.getNextHighestDepth());
+         with(panel.carPrev)
+         {
+            beginFill(16777215,70);
+            moveTo(0,0);
+            lineTo(10,-8);
+            lineTo(10,8);
+            lineTo(0,0);
+            endFill();
+         }
+         panel.carPrev._x = 260;
+         panel.carPrev._y = 150;
+         panel.carPrev.onRelease = function()
+         {
+            var n = classes.Console.profileCardCars.firstChild.childNodes.length;
+            classes.Console.profileCardCarIndex = (classes.Console.profileCardCarIndex + n - 1) % n;
+            classes.Console.showProfileCardCar();
+         };
+         panel.createEmptyMovieClip("carNext",panel.getNextHighestDepth());
+         with(panel.carNext)
+         {
+            beginFill(16777215,70);
+            moveTo(0,0);
+            lineTo(-10,-8);
+            lineTo(-10,8);
+            lineTo(0,0);
+            endFill();
+         }
+         panel.carNext._x = 400;
+         panel.carNext._y = 150;
+         panel.carNext.onRelease = function()
+         {
+            var n = classes.Console.profileCardCars.firstChild.childNodes.length;
+            classes.Console.profileCardCarIndex = (classes.Console.profileCardCarIndex + 1) % n;
+            classes.Console.showProfileCardCar();
+         };
+      }
    }
    static function closeProfileCard()
    {
@@ -2644,11 +2731,13 @@
       {
          classes.Console.profileCardBox.closeMe();
       }
-      if(classes.Console.profileCardInfo)
+      if(classes.Console.profileCardPanel)
       {
-         classes.Console.profileCardInfo.removeMovieClip();
+         classes.Console.profileCardPanel.removeMovieClip();
       }
       classes.Console.profileCardBox = undefined;
-      classes.Console.profileCardInfo = undefined;
+      classes.Console.profileCardPanel = undefined;
       classes.Console.profileCardUID = undefined;
+      classes.Console.profileCardCars = undefined;
+      classes.Console.profileCardCarIndex = undefined;
    }
