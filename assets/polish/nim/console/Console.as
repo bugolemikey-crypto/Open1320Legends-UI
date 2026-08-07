@@ -34,6 +34,7 @@
    static var nimBuddyID = 0;
    static var nimBuddyName = "";
    static var profileCardBox;
+   static var profileCardInfo;
    static var profileCardUID;
    static var buddyDragID = 0;
    static var enteredText = "";
@@ -2580,6 +2581,10 @@
       if(classes.Console.profileCardUID == uID && classes.Console.profileCardBox)
       {
          classes.Console.profileCardBox.swapDepths(_root.getNextHighestDepth());
+         if(classes.Console.profileCardInfo)
+         {
+            classes.Console.profileCardInfo.swapDepths(_root.getNextHighestDepth());
+         }
          return undefined;
       }
       classes.Console.closeProfileCard();
@@ -2614,12 +2619,15 @@
          statsText = "Rank: " + _loc3_.attributes.scr + "\nwin/loss stats available with membership";
       }
       classes.Console.profileCardBox.setValue(uName,statsText,"info");
-      if(classes.Console.profileCardBox.contentMC.userInfo)
+      if(classes.Console.profileCardInfo)
       {
-         classes.Console.profileCardBox.contentMC.userInfo.removeMovieClip();
+         classes.Console.profileCardInfo.removeMovieClip();
       }
-      var info = classes.Console.profileCardBox.contentMC.attachMovie("userInfo","userInfo",classes.Console.profileCardBox.contentMC.getNextHighestDepth(),{_x:20,_y:70,scale:70,uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(_loc3_.toString())});
+      var info = _root.attachMovie("userInfo","profileCardInfo",_root.getNextHighestDepth(),{uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(_loc3_.toString())});
       info.cacheAsBitmap = true;
+      info._x = (Stage.width - info._width) / 2;
+      info._y = (Stage.height + 256) / 2 + 20;
+      classes.Console.profileCardInfo = info;
    }
    static function closeProfileCard()
    {
@@ -2627,6 +2635,11 @@
       {
          classes.Console.profileCardBox.closeMe();
       }
+      if(classes.Console.profileCardInfo)
+      {
+         classes.Console.profileCardInfo.removeMovieClip();
+      }
       classes.Console.profileCardBox = undefined;
+      classes.Console.profileCardInfo = undefined;
       classes.Console.profileCardUID = undefined;
    }
