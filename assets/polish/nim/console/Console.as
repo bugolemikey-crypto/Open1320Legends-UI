@@ -2625,11 +2625,16 @@
       {
          recordText = "Win/loss stats available with membership";
       }
-      classes.Drawing.userListItem(panel,"profileIdent",uID,uName,20,44,null);
-      panel.attachMovie("shopMenuListItem","profileRank",panel.getNextHighestDepth(),{_x:20,_y:88});
+      classes.Drawing.portrait(panel,uID,2,20,44,2);
+      panel.attachMovie("shopMenuListItem","profileName",panel.getNextHighestDepth(),{_x:130,_y:48});
+      panel.profileName.txt = uName;
+      panel.profileName.dot._visible = false;
+      panel.attachMovie("shopMenuListItem","profileRank",panel.getNextHighestDepth(),{_x:130,_y:72});
       panel.profileRank.txt = "Rank: " + _loc3_.attributes.scr;
-      panel.attachMovie("shopMenuListItem","profileRecord",panel.getNextHighestDepth(),{_x:20,_y:112});
+      panel.profileRank.dot._visible = false;
+      panel.attachMovie("shopMenuListItem","profileRecord",panel.getNextHighestDepth(),{_x:130,_y:96});
       panel.profileRecord.txt = recordText;
+      panel.profileRecord.dot._visible = false;
       panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
       panel.badges._x = 20;
       panel.badges._y = 145;
