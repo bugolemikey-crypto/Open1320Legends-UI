@@ -81,6 +81,12 @@ PAINT_SHOP_ACTION = (ROOT / "assets" / "polish"
 CAR_CONSTRUCTION = ROOT / "assets" / "polish" / "nim" / "CarConstruction.as"
 CAR_SPECS = ROOT / "assets" / "polish" / "nim" / "CarSpecs.as"
 STARTUP_SCRIPTS = ROOT / "assets" / "polish" / "startup"
+# KOTH room panel (DefineSprite 2630): roster row, current-king photo and
+# queue row onRelease handlers point at classes.Console.openProfileCard
+# instead of classes.Control.focusViewer. Frame 1 has a DoAction_2 tag too
+# (like the root timeline's frame 1), so -replace can't address DoAction by
+# name here either - imported via -importScript same as STARTUP_SCRIPTS.
+KOTH_ROSTER_SCRIPTS = ROOT / "assets" / "polish" / "koth"
 # classes.Console is edited as separate files under assets/polish/nim/console/
 # (see nim_console_parts) and concatenated into one class at build time, because
 # FFDec can neither add new classes to the SWF nor honour #include.
@@ -325,11 +331,17 @@ def main() -> None:
         nim_console = assemble_nim_console(temp / "Console.assembled.as")
         run([ffdec, "-replace", str(versioned), str(consoled),
              "\\__Packages\\classes\\Console", str(nim_console)])
+        # KOTH room panel: roster/king/queue clicks open the profile card
+        # popup (classes.Console.openProfileCard) instead of the full-page
+        # viewer. See KOTH_ROSTER_SCRIPTS comment above for the DoAction_2 note.
+        kothed = temp / "polish-kothed.swf"
+        run([ffdec, "-importScript", str(consoled), str(kothed),
+             str(KOTH_ROSTER_SCRIPTS)])
         # classes.Frame recompiled from the deployed source (NOT repo Frame.as,
         # which has the legacy skinDockTab that dims/hides the dock tabs). The
         # only edit: createMap hides the map's NEWS node (bubblesGroup.court).
         framed = temp / "polish-framed.swf"
-        run([ffdec, "-replace", str(consoled), str(framed),
+        run([ffdec, "-replace", str(kothed), str(framed),
              "\\__Packages\\classes\\Frame", str(NIM_FRAME)])
         raced = temp / "polish-raced.swf"
         run([ffdec, "-replace", str(framed), str(raced),
