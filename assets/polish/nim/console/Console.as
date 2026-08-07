@@ -33,6 +33,8 @@
    static var panelNum = 2;
    static var nimBuddyID = 0;
    static var nimBuddyName = "";
+   static var profileCardBox;
+   static var profileCardUID;
    static var buddyDragID = 0;
    static var enteredText = "";
    function Console(target)
@@ -2568,4 +2570,63 @@
       classes.Console.removeIndicator(userID);
       classes.Console.focusConverse(classes.Console.nimBuddyID);
       classes.Console._BASE.panel.refreshMe();
+   }
+   static function openProfileCard(uID, uName)
+   {
+      if(!uID)
+      {
+         return undefined;
+      }
+      if(classes.Console.profileCardUID == uID && classes.Console.profileCardBox)
+      {
+         classes.Console.profileCardBox.swapDepths(_root.getNextHighestDepth());
+         return undefined;
+      }
+      classes.Console.closeProfileCard();
+      classes.Console.profileCardUID = uID;
+      classes.Console.profileCardBox = classes.AlertBox(_root.attachMovie("alertBox","profileCard",_root.getNextHighestDepth()));
+      classes.Console.profileCardBox.setValue(uName ? uName : "Loading...","Loading profile...","info");
+      classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
+      _root.getUser(uID);
+   }
+   static function CB_profileCardGetUser(d)
+   {
+      var _loc2_;
+      var _loc3_;
+      if(!classes.Console.profileCardBox)
+      {
+         return undefined;
+      }
+      _loc2_ = new XML(d);
+      _loc3_ = _loc2_.firstChild.firstChild;
+      var uID = _loc3_.attributes.i;
+      var uName = _loc3_.attributes.u;
+      var tID = Number(_loc3_.attributes.ti);
+      var tName = _loc3_.attributes.tn;
+      var uCred = _loc3_.attributes.sc;
+      var statsText;
+      if(Number(_loc3_.attributes.w) > -1)
+      {
+         statsText = "Rank: " + _loc3_.attributes.scr + "\nWins: " + _loc3_.attributes.w + "    Losses: " + _loc3_.attributes.l;
+      }
+      else
+      {
+         statsText = "Rank: " + _loc3_.attributes.scr + "\nwin/loss stats available with membership";
+      }
+      classes.Console.profileCardBox.setValue(uName,statsText,"info");
+      if(classes.Console.profileCardBox.contentMC.userInfo)
+      {
+         classes.Console.profileCardBox.contentMC.userInfo.removeMovieClip();
+      }
+      var info = classes.Console.profileCardBox.contentMC.attachMovie("userInfo","userInfo",classes.Console.profileCardBox.contentMC.getNextHighestDepth(),{_x:20,_y:70,scale:70,uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(_loc3_.toString())});
+      info.cacheAsBitmap = true;
+   }
+   static function closeProfileCard()
+   {
+      if(classes.Console.profileCardBox)
+      {
+         classes.Console.profileCardBox.closeMe();
+      }
+      classes.Console.profileCardBox = undefined;
+      classes.Console.profileCardUID = undefined;
    }
