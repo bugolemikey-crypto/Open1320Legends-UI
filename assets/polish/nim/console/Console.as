@@ -35,8 +35,17 @@
    static var nimBuddyName = "";
    static var profileCardPanel;
    static var profileCardUID;
+   static var profileCardUName;
    static var profileCardCars;
    static var profileCardCarIndex;
+   static var profileCardTargetWins;
+   static var profileCardTargetLosses;
+   static var profileCardTargetRank;
+   static var profileCardMyWins;
+   static var profileCardMyLosses;
+   static var profileCardMyRank;
+   static var challengePanel;
+   static var challengeMyCarIndex;
    static var buddyDragID = 0;
    static var enteredText = "";
    function Console(target)
@@ -2586,20 +2595,32 @@
       }
       classes.Console.closeProfileCard();
       classes.Console.profileCardUID = uID;
+      classes.Console.profileCardUName = uName;
       var panel = _root.createEmptyMovieClip("profileCardPanel",_root.getNextHighestDepth());
       panel._x = (Stage.width - 460) / 2;
-      panel._y = (Stage.height - 260) / 2;
+      panel._y = (Stage.height - 280) / 2;
       classes.Console.profileCardPanel = panel;
       panel.cacheAsBitmap = true;
-      classes.Drawing.insetBox(panel,460,260,34,1119253,592652,1381913,0);
+      classes.Drawing.insetBox(panel,460,280,34,1119253,592652,1381913,0);
       panel.attachMovie("BaseBoxButton","closeBtn",panel.getNextHighestDepth(),{_x:372,_y:4});
       panel.closeBtn.btnLabel.text = "Close";
       panel.closeBtn.onRelease = function()
       {
          classes.Console.closeProfileCard();
       };
+      panel.attachMovie("BaseBoxButton","challengeBtn",panel.getNextHighestDepth(),{_x:255,_y:4});
+      panel.challengeBtn.btnLabel.text = "Challenge";
+      panel.challengeBtn.onRelease = function()
+      {
+         classes.Console.openChallengePicker();
+      };
       classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
       _root.getUser(uID);
+      if(uID != classes.GlobalData.id)
+      {
+         classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetMyStats,String(classes.GlobalData.id));
+         _root.getUser(classes.GlobalData.id);
+      }
    }
    static function CB_profileCardGetUser(d)
    {
@@ -2635,9 +2656,13 @@
       panel.attachMovie("shopMenuListItem","profileRecord",panel.getNextHighestDepth(),{_x:130,_y:96});
       panel.profileRecord.txt = recordText;
       panel.profileRecord.dot._visible = false;
+      classes.Console.profileCardTargetWins = Number(_loc3_.attributes.w);
+      classes.Console.profileCardTargetLosses = Number(_loc3_.attributes.l);
+      classes.Console.profileCardTargetRank = _loc3_.attributes.scr;
+      classes.Console.showProfileCardComparison();
       panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
       panel.badges._x = 20;
-      panel.badges._y = 145;
+      panel.badges._y = 170;
       if(_root.badgesHolder)
       {
          badgeArr = new Array();
@@ -2723,12 +2748,187 @@
    }
    static function closeProfileCard()
    {
+      classes.Console.closeChallengePicker();
       if(classes.Console.profileCardPanel)
       {
          classes.Console.profileCardPanel.removeMovieClip();
       }
       classes.Console.profileCardPanel = undefined;
       classes.Console.profileCardUID = undefined;
+      classes.Console.profileCardUName = undefined;
       classes.Console.profileCardCars = undefined;
       classes.Console.profileCardCarIndex = undefined;
+      classes.Console.profileCardTargetWins = undefined;
+      classes.Console.profileCardTargetLosses = undefined;
+      classes.Console.profileCardTargetRank = undefined;
+      classes.Console.profileCardMyWins = undefined;
+      classes.Console.profileCardMyLosses = undefined;
+      classes.Console.profileCardMyRank = undefined;
+   }
+   static function CB_profileCardGetMyStats(d)
+   {
+      var xml = new XML(d);
+      var node = xml.firstChild.firstChild;
+      classes.Console.profileCardMyWins = Number(node.attributes.w);
+      classes.Console.profileCardMyLosses = Number(node.attributes.l);
+      classes.Console.profileCardMyRank = node.attributes.scr;
+      classes.Console.showProfileCardComparison();
+   }
+   static function showProfileCardComparison()
+   {
+      var panel = classes.Console.profileCardPanel;
+      if(!panel)
+      {
+         return undefined;
+      }
+      if(classes.Console.profileCardTargetRank == undefined)
+      {
+         return undefined;
+      }
+      var compareText;
+      if(classes.Console.profileCardUID == classes.GlobalData.id)
+      {
+         compareText = "";
+      }
+      else if(classes.Console.profileCardMyRank == undefined)
+      {
+         return undefined;
+      }
+      else
+      {
+         compareText = "You: " + classes.Console.profileCardMyRank + "    Wins: " + classes.Console.profileCardMyWins + "    Losses: " + classes.Console.profileCardMyLosses;
+      }
+      if(compareText.length)
+      {
+         if(panel.profileCompare == undefined)
+         {
+            panel.attachMovie("shopMenuListItem","profileCompare",panel.getNextHighestDepth(),{_x:130,_y:120});
+            panel.profileCompare.dot._visible = false;
+         }
+         panel.profileCompare.txt = compareText;
+      }
+   }
+   static function openChallengePicker()
+   {
+      if(classes.Console.challengePanel)
+      {
+         classes.Console.challengePanel.swapDepths(_root.getNextHighestDepth());
+         return undefined;
+      }
+      var panel = _root.createEmptyMovieClip("challengePanel",_root.getNextHighestDepth());
+      panel._x = (Stage.width - 460) / 2;
+      panel._y = classes.Console.profileCardPanel._y + 280 + 20;
+      classes.Console.challengePanel = panel;
+      panel.cacheAsBitmap = true;
+      classes.Drawing.insetBox(panel,460,230,34,1119253,592652,1381913,0);
+      panel.attachMovie("BaseBoxButton","closeBtn",panel.getNextHighestDepth(),{_x:372,_y:4});
+      panel.closeBtn.btnLabel.text = "Close";
+      panel.closeBtn.onRelease = function()
+      {
+         classes.Console.closeChallengePicker();
+      };
+      panel.attachMovie("shopMenuListItem","challengeTitle",panel.getNextHighestDepth(),{_x:20,_y:4});
+      panel.challengeTitle.txt = "Challenge " + classes.Console.profileCardUName + " - pick your car:";
+      panel.challengeTitle.dot._visible = false;
+      panel.createEmptyMovieClip("myCarClip",panel.getNextHighestDepth());
+      panel.myCarClip._x = 100;
+      panel.myCarClip._y = 90;
+      classes.Console.challengeMyCarIndex = 0;
+      classes.Console.showChallengeMyCar();
+      panel.attachMovie("shopMenuListItem","btnPractice",panel.getNextHighestDepth(),{_x:230,_y:60});
+      panel.btnPractice.txt = "Send: Practice (No Wager)";
+      panel.btnPractice.dot._visible = false;
+      panel.btnPractice.onRelease = function()
+      {
+         classes.Console.sendChallenge(-1,1);
+      };
+      panel.attachMovie("shopMenuListItem","btn500",panel.getNextHighestDepth(),{_x:230,_y:90});
+      panel.btn500.txt = "Send: Cash Wager $500";
+      panel.btn500.dot._visible = false;
+      panel.btn500.onRelease = function()
+      {
+         classes.Console.sendChallenge(500,1);
+      };
+      panel.attachMovie("shopMenuListItem","btn1000",panel.getNextHighestDepth(),{_x:230,_y:120});
+      panel.btn1000.txt = "Send: Cash Wager $1000";
+      panel.btn1000.dot._visible = false;
+      panel.btn1000.onRelease = function()
+      {
+         classes.Console.sendChallenge(1000,1);
+      };
+   }
+   static function showChallengeMyCar()
+   {
+      var panel = classes.Console.challengePanel;
+      if(!panel || !_global.garageXML || !_global.garageXML.firstChild.childNodes.length)
+      {
+         return undefined;
+      }
+      var idx = classes.Console.challengeMyCarIndex;
+      var carNode = _global.garageXML.firstChild.childNodes[idx];
+      classes.Drawing.carView(panel.myCarClip,new XML(carNode.toString()),10);
+      if(panel.myCarPrev == undefined && _global.garageXML.firstChild.childNodes.length > 1)
+      {
+         panel.createEmptyMovieClip("myCarPrev",panel.getNextHighestDepth());
+         with(panel.myCarPrev)
+         {
+            beginFill(16777215,70);
+            moveTo(0,0);
+            lineTo(10,-8);
+            lineTo(10,8);
+            lineTo(0,0);
+            endFill();
+         }
+         panel.myCarPrev._x = 70;
+         panel.myCarPrev._y = 90;
+         panel.myCarPrev.onRelease = function()
+         {
+            var n = _global.garageXML.firstChild.childNodes.length;
+            classes.Console.challengeMyCarIndex = (classes.Console.challengeMyCarIndex + n - 1) % n;
+            classes.Console.showChallengeMyCar();
+         };
+         panel.createEmptyMovieClip("myCarNext",panel.getNextHighestDepth());
+         with(panel.myCarNext)
+         {
+            beginFill(16777215,70);
+            moveTo(0,0);
+            lineTo(-10,-8);
+            lineTo(-10,8);
+            lineTo(0,0);
+            endFill();
+         }
+         panel.myCarNext._x = 170;
+         panel.myCarNext._y = 90;
+         panel.myCarNext.onRelease = function()
+         {
+            var n = _global.garageXML.firstChild.childNodes.length;
+            classes.Console.challengeMyCarIndex = (classes.Console.challengeMyCarIndex + 1) % n;
+            classes.Console.showChallengeMyCar();
+         };
+      }
+   }
+   static function sendChallenge(bt, bet)
+   {
+      if(!_global.garageXML || !_global.garageXML.firstChild.childNodes.length)
+      {
+         return undefined;
+      }
+      if(!classes.Console.profileCardCars || !classes.Console.profileCardCars.firstChild.childNodes.length)
+      {
+         return undefined;
+      }
+      var myCarID = _global.garageXML.firstChild.childNodes[classes.Console.challengeMyCarIndex].attributes.i;
+      var targetCarID = classes.Console.profileCardCars.firstChild.childNodes[classes.Console.profileCardCarIndex].attributes.i;
+      _root.chatPRChallengeRequest(myCarID,targetCarID,-1,bt,bet);
+      _root.displayAlert("info","Challenge Sent","Your challenge has been sent to " + classes.Console.profileCardUName + ".");
+      classes.Console.closeChallengePicker();
+   }
+   static function closeChallengePicker()
+   {
+      if(classes.Console.challengePanel)
+      {
+         classes.Console.challengePanel.removeMovieClip();
+      }
+      classes.Console.challengePanel = undefined;
+      classes.Console.challengeMyCarIndex = undefined;
    }
