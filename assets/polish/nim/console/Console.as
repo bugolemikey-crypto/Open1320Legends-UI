@@ -2634,31 +2634,34 @@
          classes.Console.profileCardPanel.removeMovieClip();
       }
       panel = _root.createEmptyMovieClip("profileCardPanel",_root.getNextHighestDepth());
+      var boxX = classes.Console.profileCardBox._x + classes.Console.profileCardBox.contentMC._x;
+      var boxY = classes.Console.profileCardBox._y + classes.Console.profileCardBox.contentMC._y;
+      panel._x = boxX + (classes.Console.profileCardBox.contentMC._width - 420) / 2;
+      panel._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
+      classes.Console.profileCardPanel = panel;
       panel.cacheAsBitmap = true;
       classes.Drawing.insetBox(panel,420,230,26,1119253,592652,1381913,0);
       classes.Drawing.portrait(panel,uID,2,16,40,2);
       panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
       panel.badges._x = 140;
       panel.badges._y = 44;
-      badgeArr = new Array();
-      i = 0;
-      while(i < _loc3_.childNodes.length)
+      if(_root.badgesHolder)
       {
-         if(_loc3_.childNodes[i].attributes.v == "1")
+         badgeArr = new Array();
+         i = 0;
+         while(i < _loc3_.childNodes.length)
          {
-            badgeArr.push(_loc3_.childNodes[i].attributes);
+            if(_loc3_.childNodes[i].attributes.v == "1")
+            {
+               badgeArr.push(_loc3_.childNodes[i].attributes);
+            }
+            i = i + 1;
          }
-         i = i + 1;
+         classes.Badges.drawBadges(panel.badges,badgeArr,260,false);
       }
-      classes.Badges.drawBadges(panel.badges,badgeArr,260,false);
       panel.createEmptyMovieClip("carClip",panel.getNextHighestDepth());
       panel.carClip._x = 330;
       panel.carClip._y = 150;
-      var boxX = classes.Console.profileCardBox._x + classes.Console.profileCardBox.contentMC._x;
-      var boxY = classes.Console.profileCardBox._y + classes.Console.profileCardBox.contentMC._y;
-      panel._x = boxX + (classes.Console.profileCardBox.contentMC._width - 420) / 2;
-      panel._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
-      classes.Console.profileCardPanel = panel;
       classes.Console.profileCardCars = undefined;
       classes.Console.profileCardCarIndex = 0;
       classes.Lookup.addCallback("getOtherUserCars",classes.Console,classes.Console.CB_profileCardGetCars,String(uID));
