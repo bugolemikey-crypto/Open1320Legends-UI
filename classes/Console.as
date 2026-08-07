@@ -26,6 +26,8 @@ class classes.Console
    static var nimBuddyName = "";
    static var buddyDragID = 0;
    static var enteredText = "";
+   static var profileCardBox;
+   static var profileCardUID;
    function Console(target)
    {
       function refreshConverse(_subject)
@@ -1920,5 +1922,62 @@ class classes.Console
       trace(classes.Console._BASE.pnl.tog_noInvite);
       classes.Console._BASE.panel.tog_noInvite._visible = false;
       classes.Console._BASE.panel.tog_noInvite.onRelease = null;
+   }
+   static function openProfileCard(uID, uName)
+   {
+      if(!uID)
+      {
+         return undefined;
+      }
+      if(classes.Console.profileCardUID == uID && classes.Console.profileCardBox)
+      {
+         classes.Console.profileCardBox.swapDepths(_root.getNextHighestDepth());
+         return undefined;
+      }
+      classes.Console.closeProfileCard();
+      classes.Console.profileCardUID = uID;
+      classes.Console.profileCardBox = classes.AlertBox(_root.attachMovie("alertBox","profileCard",_root.getNextHighestDepth()));
+      classes.Console.profileCardBox.setValue(uName ? uName : "Loading...","Loading profile...","info");
+      classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
+      _root.getUser(uID);
+   }
+   static function CB_profileCardGetUser(d)
+   {
+      if(!classes.Console.profileCardBox)
+      {
+         return undefined;
+      }
+      var userXML = new XML(d);
+      var node = userXML.firstChild.firstChild;
+      var uID = node.attributes.i;
+      var uName = node.attributes.u;
+      var tID = Number(node.attributes.ti);
+      var tName = node.attributes.tn;
+      var uCred = node.attributes.sc;
+      var statsText;
+      if(Number(node.attributes.w) > -1)
+      {
+         statsText = "Rank: " + node.attributes.scr + "\nWins: " + node.attributes.w + "    Losses: " + node.attributes.l;
+      }
+      else
+      {
+         statsText = "Rank: " + node.attributes.scr + "\nwin/loss stats available with membership";
+      }
+      classes.Console.profileCardBox.setValue(uName,statsText,"info");
+      if(classes.Console.profileCardBox.contentMC.userInfo)
+      {
+         classes.Console.profileCardBox.contentMC.userInfo.removeMovieClip();
+      }
+      var info = classes.Console.profileCardBox.contentMC.attachMovie("userInfo","userInfo",classes.Console.profileCardBox.contentMC.getNextHighestDepth(),{_x:20,_y:70,scale:70,uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(node.toString())});
+      info.cacheAsBitmap = true;
+   }
+   static function closeProfileCard()
+   {
+      if(classes.Console.profileCardBox)
+      {
+         classes.Console.profileCardBox.closeMe();
+      }
+      classes.Console.profileCardBox = undefined;
+      classes.Console.profileCardUID = undefined;
    }
 }
