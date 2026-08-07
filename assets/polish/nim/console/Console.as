@@ -33,7 +33,6 @@
    static var panelNum = 2;
    static var nimBuddyID = 0;
    static var nimBuddyName = "";
-   static var profileCardBox;
    static var profileCardPanel;
    static var profileCardUID;
    static var profileCardCars;
@@ -2580,26 +2579,25 @@
       {
          return undefined;
       }
-      if(classes.Console.profileCardUID == uID && classes.Console.profileCardBox)
+      if(classes.Console.profileCardUID == uID && classes.Console.profileCardPanel)
       {
-         classes.Console.profileCardBox.swapDepths(_root.getNextHighestDepth());
-         if(classes.Console.profileCardPanel)
-         {
-            classes.Console.profileCardPanel.swapDepths(_root.getNextHighestDepth());
-         }
+         classes.Console.profileCardPanel.swapDepths(_root.getNextHighestDepth());
          return undefined;
       }
       classes.Console.closeProfileCard();
       classes.Console.profileCardUID = uID;
-      classes.Console.profileCardBox = classes.AlertBox(_root.attachMovie("alertBox","profileCard",_root.getNextHighestDepth()));
-      classes.Console.profileCardBox.setValue(uName ? uName : "Loading...","Loading profile...","info");
-      classes.Console.profileCardBox.addButton("Close");
-      var closeListener = new Object();
-      closeListener.onRelease = function()
+      var panel = _root.createEmptyMovieClip("profileCardPanel",_root.getNextHighestDepth());
+      panel._x = (Stage.width - 460) / 2;
+      panel._y = (Stage.height - 260) / 2;
+      classes.Console.profileCardPanel = panel;
+      panel.cacheAsBitmap = true;
+      classes.Drawing.insetBox(panel,460,260,34,1119253,592652,1381913,0);
+      panel.attachMovie("BaseBoxButton","closeBtn",panel.getNextHighestDepth(),{_x:372,_y:4});
+      panel.closeBtn.btnLabel.text = "Close";
+      panel.closeBtn.onRelease = function()
       {
          classes.Console.closeProfileCard();
       };
-      classes.Console.profileCardBox.addListener(closeListener);
       classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
       _root.getUser(uID);
    }
@@ -2607,10 +2605,10 @@
    {
       var _loc2_;
       var _loc3_;
-      var panel;
       var badgeArr;
       var i;
-      if(!classes.Console.profileCardBox)
+      var panel = classes.Console.profileCardPanel;
+      if(!panel)
       {
          return undefined;
       }
@@ -2618,33 +2616,23 @@
       _loc3_ = _loc2_.firstChild.firstChild;
       var uID = _loc3_.attributes.i;
       var uName = _loc3_.attributes.u;
-      var uCred = _loc3_.attributes.sc;
-      var statsText;
+      var recordText;
       if(Number(_loc3_.attributes.w) > -1)
       {
-         statsText = "Rank: " + _loc3_.attributes.scr + "\nWins: " + _loc3_.attributes.w + "    Losses: " + _loc3_.attributes.l;
+         recordText = "Wins: " + _loc3_.attributes.w + "    Losses: " + _loc3_.attributes.l;
       }
       else
       {
-         statsText = "Rank: " + _loc3_.attributes.scr + "\nwin/loss stats available with membership";
+         recordText = "Win/loss stats available with membership";
       }
-      classes.Console.profileCardBox.setValue(uName,statsText,"info");
-      if(classes.Console.profileCardPanel)
-      {
-         classes.Console.profileCardPanel.removeMovieClip();
-      }
-      panel = _root.createEmptyMovieClip("profileCardPanel",_root.getNextHighestDepth());
-      var boxX = classes.Console.profileCardBox._x + classes.Console.profileCardBox.contentMC._x;
-      var boxY = classes.Console.profileCardBox._y + classes.Console.profileCardBox.contentMC._y;
-      panel._x = boxX + (classes.Console.profileCardBox.contentMC._width - 420) / 2;
-      panel._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
-      classes.Console.profileCardPanel = panel;
-      panel.cacheAsBitmap = true;
-      classes.Drawing.insetBox(panel,420,230,26,1119253,592652,1381913,0);
-      classes.Drawing.portrait(panel,uID,2,16,40,2);
+      classes.Drawing.userListItem(panel,"profileIdent",uID,uName,20,44,null);
+      panel.attachMovie("shopMenuListItem","profileRank",panel.getNextHighestDepth(),{_x:20,_y:88});
+      panel.profileRank.txt = "Rank: " + _loc3_.attributes.scr;
+      panel.attachMovie("shopMenuListItem","profileRecord",panel.getNextHighestDepth(),{_x:20,_y:112});
+      panel.profileRecord.txt = recordText;
       panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
-      panel.badges._x = 140;
-      panel.badges._y = 44;
+      panel.badges._x = 20;
+      panel.badges._y = 145;
       if(_root.badgesHolder)
       {
          badgeArr = new Array();
@@ -2660,8 +2648,8 @@
          classes.Badges.drawBadges(panel.badges,badgeArr,260,false);
       }
       panel.createEmptyMovieClip("carClip",panel.getNextHighestDepth());
-      panel.carClip._x = 330;
-      panel.carClip._y = 150;
+      panel.carClip._x = 370;
+      panel.carClip._y = 100;
       classes.Console.profileCardCars = undefined;
       classes.Console.profileCardCarIndex = 0;
       classes.Lookup.addCallback("getOtherUserCars",classes.Console,classes.Console.CB_profileCardGetCars,String(uID));
@@ -2700,8 +2688,8 @@
             lineTo(0,0);
             endFill();
          }
-         panel.carPrev._x = 260;
-         panel.carPrev._y = 150;
+         panel.carPrev._x = 340;
+         panel.carPrev._y = 100;
          panel.carPrev.onRelease = function()
          {
             var n = classes.Console.profileCardCars.firstChild.childNodes.length;
@@ -2718,8 +2706,8 @@
             lineTo(0,0);
             endFill();
          }
-         panel.carNext._x = 400;
-         panel.carNext._y = 150;
+         panel.carNext._x = 440;
+         panel.carNext._y = 100;
          panel.carNext.onRelease = function()
          {
             var n = classes.Console.profileCardCars.firstChild.childNodes.length;
@@ -2730,15 +2718,10 @@
    }
    static function closeProfileCard()
    {
-      if(classes.Console.profileCardBox)
-      {
-         classes.Console.profileCardBox.closeMe();
-      }
       if(classes.Console.profileCardPanel)
       {
          classes.Console.profileCardPanel.removeMovieClip();
       }
-      classes.Console.profileCardBox = undefined;
       classes.Console.profileCardPanel = undefined;
       classes.Console.profileCardUID = undefined;
       classes.Console.profileCardCars = undefined;
