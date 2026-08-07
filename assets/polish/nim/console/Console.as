@@ -2817,7 +2817,7 @@
       }
       var panel = _root.createEmptyMovieClip("challengePanel",_root.getNextHighestDepth());
       panel._x = (Stage.width - 460) / 2;
-      panel._y = classes.Console.profileCardPanel._y + 280 + 20;
+      panel._y = (Stage.height - 230) / 2;
       classes.Console.challengePanel = panel;
       panel.cacheAsBitmap = true;
       classes.Drawing.insetBox(panel,460,230,34,1119253,592652,1381913,0);
