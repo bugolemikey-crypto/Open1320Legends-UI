@@ -2591,6 +2591,13 @@
       classes.Console.profileCardUID = uID;
       classes.Console.profileCardBox = classes.AlertBox(_root.attachMovie("alertBox","profileCard",_root.getNextHighestDepth()));
       classes.Console.profileCardBox.setValue(uName ? uName : "Loading...","Loading profile...","info");
+      classes.Console.profileCardBox.addButton("Close");
+      var closeListener = new Object();
+      closeListener.onRelease = function()
+      {
+         classes.Console.closeProfileCard();
+      };
+      classes.Console.profileCardBox.addListener(closeListener);
       classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
       _root.getUser(uID);
    }
@@ -2625,8 +2632,10 @@
       }
       var info = _root.attachMovie("userInfo","profileCardInfo",_root.getNextHighestDepth(),{uID:uID,uName:uName,tID:tID,tName:tName,uCred:uCred,showBadgesXML:new XML(_loc3_.toString())});
       info.cacheAsBitmap = true;
-      info._x = (Stage.width - info._width) / 2;
-      info._y = (Stage.height + 256) / 2 + 20;
+      var boxX = classes.Console.profileCardBox._x + classes.Console.profileCardBox.contentMC._x;
+      var boxY = classes.Console.profileCardBox._y + classes.Console.profileCardBox.contentMC._y;
+      info._x = boxX + (classes.Console.profileCardBox.contentMC._width - info._width) / 2;
+      info._y = boxY + classes.Console.profileCardBox.contentMC._height + 10;
       classes.Console.profileCardInfo = info;
    }
    static function closeProfileCard()
