@@ -2616,11 +2616,6 @@
       };
       classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetUser,String(uID));
       _root.getUser(uID);
-      if(uID != classes.GlobalData.id)
-      {
-         classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetMyStats,String(classes.GlobalData.id));
-         _root.getUser(classes.GlobalData.id);
-      }
    }
    static function CB_profileCardGetUser(d)
    {
@@ -2660,6 +2655,11 @@
       classes.Console.profileCardTargetLosses = Number(_loc3_.attributes.l);
       classes.Console.profileCardTargetRank = _loc3_.attributes.scr;
       classes.Console.showProfileCardComparison();
+      if(uID != classes.GlobalData.id)
+      {
+         classes.Lookup.addCallback("getUser",classes.Console,classes.Console.CB_profileCardGetMyStats,String(classes.GlobalData.id));
+         _root.getUser(classes.GlobalData.id);
+      }
       panel.createEmptyMovieClip("badges",panel.getNextHighestDepth());
       panel.badges._x = 20;
       panel.badges._y = 170;
