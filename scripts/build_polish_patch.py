@@ -87,6 +87,12 @@ STARTUP_SCRIPTS = ROOT / "assets" / "polish" / "startup"
 # (like the root timeline's frame 1), so -replace can't address DoAction by
 # name here either - imported via -importScript same as STARTUP_SCRIPTS.
 KOTH_ROSTER_SCRIPTS = ROOT / "assets" / "polish" / "koth"
+# Rivals Strip room panels (DefineSprite 2688 and 3596 - both showContainer
+# "waitRivals", couldn't confirm from here which variant a given room
+# instance actually uses, so both are patched): roster row onRelease points
+# at classes.Console.openProfileCard instead of classes.Control.focusViewer,
+# same reasoning and DoAction_2 constraint as KOTH_ROSTER_SCRIPTS above.
+RIVALS_ROSTER_SCRIPTS = ROOT / "assets" / "polish" / "rivals"
 # classes.Console is edited as separate files under assets/polish/nim/console/
 # (see nim_console_parts) and concatenated into one class at build time, because
 # FFDec can neither add new classes to the SWF nor honour #include.
@@ -337,11 +343,17 @@ def main() -> None:
         kothed = temp / "polish-kothed.swf"
         run([ffdec, "-importScript", str(consoled), str(kothed),
              str(KOTH_ROSTER_SCRIPTS)])
+        # Rivals Strip room panel: same roster-click fix as KOTH above, applied
+        # to the separate Rivals room sprites (this room type has its own
+        # DefineSprite, not shared with KOTH's).
+        rivalsed = temp / "polish-rivalsed.swf"
+        run([ffdec, "-importScript", str(kothed), str(rivalsed),
+             str(RIVALS_ROSTER_SCRIPTS)])
         # classes.Frame recompiled from the deployed source (NOT repo Frame.as,
         # which has the legacy skinDockTab that dims/hides the dock tabs). The
         # only edit: createMap hides the map's NEWS node (bubblesGroup.court).
         framed = temp / "polish-framed.swf"
-        run([ffdec, "-replace", str(kothed), str(framed),
+        run([ffdec, "-replace", str(rivalsed), str(framed),
              "\\__Packages\\classes\\Frame", str(NIM_FRAME)])
         raced = temp / "polish-raced.swf"
         run([ffdec, "-replace", str(framed), str(raced),
